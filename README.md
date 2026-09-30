@@ -50,7 +50,7 @@ Dependências diretas têm versões exatas e todas as transitivas estão no `uv.
 
 ## Uso e atalhos KDE
 
-### Painel de controle
+### Doca de controle
 
 Abra **Kokoro Reader** pelo menu de aplicativos do KDE, ou execute:
 
@@ -60,7 +60,11 @@ kokoro-reader-panel
 kokoro-readerctl panel
 ```
 
-O painel oferece **Ler seleção / clipboard**, **Pausar**, **Retomar**, **Parar**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. Você pode marcar **Manter janela por cima** para deixar os controles acessíveis enquanto estuda. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
+O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada e pode ser desativada em **Reduzir movimento**. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
+
+Expandida, a doca oferece **Ler seleção / clipboard**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
+
+No KDE Plasma 6/Wayland, o instalador registra um script próprio do KWin que posiciona somente o Kokoro Reader e respeita a área disponível após os painéis do KDE. Não modifica monitores ou regras de outras janelas. `--without-kwin` pula essa integração; sem ela, Wayland não garante a posição pedida pelo Qt. Detalhes, acessibilidade e desativação em [docs/DOCK_UI.md](docs/DOCK_UI.md).
 
 Ao fechar a janela, o painel fica na bandeja do KDE quando ela estiver disponível. Clique no ícone para reabrir, ou use o menu do ícone para controlar a fala. **Sair do painel** encerra apenas a interface; a leitura e o serviço continuam. Para encerrar a leitura, use **Parar**. Abrir novamente pelo menu reutiliza a janela existente. Se não houver bandeja, fechar a janela encerra o painel.
 
@@ -71,6 +75,19 @@ O app também mostra o estado do serviço e uma prévia curta do trecho atual. S
 O botão de leitura consulta a seleção primária Wayland e, quando vazia, o clipboard. Se o aplicativo perder a seleção ao focar o painel, copie com Ctrl+C antes de clicar em Ler. A interface não escreve no clipboard. Os atalhos globais abaixo também continuam funcionando.
 
 Qt é opcional e só é carregado pelo painel; ele não carrega pesos nem cria outro motor de síntese. A interface consulta o serviço por socket privado e não abre porta de rede. Para instalar manualmente esse extra: `uv sync --python 3.12 --locked --extra gui`. O instalador também registra a entrada do menu em `~/.local/share/applications/kokoro-reader.desktop`.
+
+### Leitura de arquivos
+
+Expanda a doca e clique em **Abrir arquivo…**, ou arraste um arquivo local sobre a doca (inclusive recolhida). São aceitos **TXT**, **Markdown** e **PDF pesquisável**. TXT/MD precisam estar em UTF-8; BOM é aceito. Abrir prepara a prévia sem reproduzir automaticamente: clique em **Ler arquivo** ou no play compacto para ouvir. Nome, extensão e ícone do tipo aparecem na doca expandida; nomes longos têm reticências e tooltip completo.
+
+**Remover arquivo** restaura seleção/clipboard. Enquanto houver arquivo carregado, o botão Ler usa esse arquivo, mesmo que a seleção mude. Os atalhos globais `kokoro-readerctl read` continuam lendo seleção/clipboard, sem depender do modo da doca. A extração acontece em uma thread separada e não altera o clipboard. Uma falha ao abrir outro arquivo mantém o anterior.
+
+```bash
+kokoro-readerctl read --file '/caminho/Meu estudo.md'
+kokoro-readerctl read --file '/caminho/apostila.pdf'
+```
+
+PDFs são extraídos offline com `pypdf` fixado no projeto, sem OCR. PDFs digitalizados sem camada de texto, protegidos, inválidos ou documentos acima dos limites são recusados com aviso. Colunas/tabelas podem ter ordem de extração diferente da visual. Limite de leitura: 60 mil caracteres, sem truncamento silencioso. Outros limites e detalhes em [docs/FILE_INPUT.md](docs/FILE_INPUT.md).
 
 ### Atalhos globais
 
@@ -154,7 +171,7 @@ Protocolo JSON v1, uma requisição/uma resposta por conexão Unix: `{"protocol"
 
 A `main` registra a base funcional com os controles e os ajustes de fluidez. O código-fonte é desenvolvido no clone; a cópia em `~/.local/share/kokoro-reader` é a instalação de execução. Para novas funcionalidades, crie branches a partir da `main`, rode `uv run --no-sync pytest` e revise as mudanças antes de integrá-las. O teste real `scripts/smoke.py` é opcional e reproduz áudio.
 
-Para desenvolver e testar o painel, sincronize com `--extra gui`. `tests/test_panel.py` usa o backend Qt offscreen e é pulado quando o extra não estiver instalado.
+Para desenvolver e testar o painel, sincronize com `--extra gui`. Os testes da interface usam o backend Qt offscreen e são pulados quando o extra não estiver instalado. `scripts/check_panel.py --expanded --file /caminho/estudo.md` valida a interface contra o serviço real e salva uma captura da própria janela, sem controlar outro aplicativo.
 
 O repositório inclui `uv.lock`, código, unit systemd, testes e relatórios de validação. Ambientes Python, pesos, áudio gerado, sockets e backups de instalação ficam fora do Git. Depois de atualizar o código e testar, reinstale com `scripts/install.py` e reinicie o serviço conforme descrito acima.
 

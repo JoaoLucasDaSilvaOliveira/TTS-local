@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 from .cli import send
 from .clipboard import read_selection, read_sources, SelectionCache, preview_text
 from .notify import notify
+from .file_controls import FileControls
 from .settings import VOICES, runtime_dir
 from .dock import DockShell, icon as dock_icon
 
@@ -82,7 +83,15 @@ class Panel(DockShell):
         self.input_layout = QVBoxLayout()
         self.input_layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(self.input_layout)
+        self.files = FileControls(self)
+        self.input_layout.addWidget(self.files)
+        self.files.loaded.connect(self.show_file_preview)
+        self.files.cleared.connect(self.show_selection_preview)
+        self.files.busy.connect(lambda _: self.update_controls())
+        self.files.error.connect(self.file_error)
+        self.setAcceptDrops(True)
         self.preview_title = QLabel("Prévia da seleção / clipboard")
+        self.preview_title.setTextFormat(Qt.TextFormat.PlainText)
         self.preview_title.setObjectName("muted")
         layout.addWidget(self.preview_title)
         self.preview = QLabel("Selecione ou copie um texto para ver a prévia.")
@@ -196,6 +205,12 @@ class Panel(DockShell):
         self.submit("play" if self.status.get("state") == "paused" else "read")
 
     def submit(self, command, **kwargs):
+        if command == "read" and "text" not in kwargs:
+            if self.files.controller.is_busy:
+                self.state.setText("Aguarde o carregamento do arquivo antes de ler.")
+                return
+            if self.files.read_payload is not None:
+                kwargs.update(self.files.read_payload)
         if command == "read" and "text" not in kwargs and self.selection.text:
             kwargs.update(text=self.selection.text, source={"kind": "wayland", "selection": self.selection.source})
         if self.pending is not None:
@@ -216,9 +231,8 @@ class Panel(DockShell):
         self.pending = None
         if response and "_selection" in response:
             self.selection.update(*response.pop("_selection"), owns_primary=QApplication.clipboard().ownsSelection())
-            self.preview.setText(preview_text(self.selection.text) or "Selecione ou copie um texto para ver a prévia.")
-            source = "seleção" if self.selection.source == "primary" else "clipboard"
-            self.preview_title.setText(f"Prévia: {source} ({len(self.selection.text)} caracteres)" if self.selection.text else "Prévia da seleção / clipboard")
+            if self.files.document is None:
+                self.show_selection_preview()
         if error:
             message = str(error)
             if isinstance(error, (ConnectionError, OSError, TimeoutError)):
@@ -271,9 +285,64 @@ class Panel(DockShell):
         label = "Retomar" if self.status.get("state") == "paused" else "Ler seleção / clipboard"
         self.compact_play.setToolTip(label)
         self.compact_play.setAccessibleName(label)
+        if self.files.document is not None and self.status.get("state") == "idle":
+            self.compact_play.setToolTip("Ler arquivo")
+            self.compact_play.setAccessibleName("Ler arquivo")
+        if self.files.controller.is_busy:
+            self.read.setEnabled(False)
+            if self.status.get("state") == "idle":
+                self.compact_play.setEnabled(False)
         self.compact_pause.setEnabled(self.pause.isEnabled())
         self.compact_stop.setEnabled(self.stop.isEnabled())
         self.header.setToolTip(f"{self.state.text()} • Abrir controles • Escape recolhe")
+
+    def refresh_input_size(self):
+        if self.expanded:
+            self.body_layout.activate()
+            target = self.target_size()
+            if self.transition.state() == self.transition.State.Running:
+                self.transition.setEndValue(target)
+            elif self.size() != target:
+                self.resize(target)
+                self._finish_transition()
+
+    def show_file_preview(self, document):
+        self.preview_title.setText(f"Prévia do arquivo ({len(document.text)} caracteres)")
+        self.preview.setText(preview_text(document.text))
+        self.read.setText("Ler arquivo")
+        self.read.setToolTip("Lê o documento completo. Abrir o arquivo apenas prepara a prévia.")
+        self.refresh_input_size()
+        self.update_controls()
+
+    def show_selection_preview(self):
+        self.preview.setText(preview_text(self.selection.text) or "Selecione ou copie um texto para ver a prévia.")
+        source = "seleção" if self.selection.source == "primary" else "clipboard"
+        self.preview_title.setText(f"Prévia: {source} ({len(self.selection.text)} caracteres)" if self.selection.text else "Prévia da seleção / clipboard")
+        self.read.setText("Ler seleção / clipboard")
+        self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
+        self.refresh_input_size()
+        self.update_controls()
+
+    def file_error(self, message):
+        self.state.setText(message)
+        notify(message, error=True)
+        self.refresh_input_size()
+
+    def dragEnterEvent(self, event):
+        if FileControls._local_path(event):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        path = FileControls._local_path(event)
+        if path:
+            event.acceptProposedAction()
+            self.set_expanded(True)
+            self.files.load_path(path)
+        else:
+            event.ignore()
+            self.file_error("Arraste um único arquivo local .txt, .md ou .pdf.")
 
     def keep_on_top(self, checked):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, checked)
@@ -335,6 +404,7 @@ def main():
         app.exec()
     finally:
         panel.pool.waitForDone(20_000)
+        panel.files.controller.pool.waitForDone(20_000)
         server.close()
         QLocalServer.removeServer(path)
         lock.unlock()
