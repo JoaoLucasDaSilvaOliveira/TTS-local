@@ -3,7 +3,7 @@
 O painel inicia recolhido: marca original de livro/onda, ler/retomar, pausar e
 parar. Clique no nome ou na marca para abrir os controles. Escape recolhe.
 O ícone na bandeja e uma segunda execução abrem o painel existente. A janela
-fica por cima por padrão; a opção no painel permite desligar esse comportamento.
+fica sempre por cima no KDE com o helper habilitado.
 
 O dock recolhido usa `WindowDoesNotAcceptFocus` e `WA_ShowWithoutActivating`:
 clicar nos controles de reprodução não ativa o painel nem toma a seleção do
@@ -28,6 +28,8 @@ Wayland entrega posicionamento ao compositor: `QWidget.move()` não garante
 coordenadas. No Plasma 6, o instalador instala o pacote próprio
 `kwin/kokoro-reader-dock` e habilita somente a chave
 `[Plugins] kokoro-reader-dockEnabled` com `kwriteconfig6`, seguido de reconfigure.
+O script define `keepAbove = true` apenas na janela do Kokoro Reader, porque
+Wayland pode ignorar o hint de empilhamento solicitado pelo Qt.
 Arquivos diferentes do mesmo pacote são preservados como `.before-install`.
 Nenhuma regra global, painel, monitor ou configuração de outro app é alterada.
 Isso não inicia o Kokoro automaticamente.

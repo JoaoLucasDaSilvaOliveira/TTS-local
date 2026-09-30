@@ -43,6 +43,7 @@ def test_compact_play_reads_or_resumes_without_accepting_window_focus(panel, mon
     commands = []
     monkeypatch.setattr(panel, "submit", lambda cmd, **kw: commands.append(cmd))
     assert not panel.expanded and not panel.details.isVisible()
+    assert panel.top.isChecked() and not panel.top.isVisible()
     assert panel.windowFlags() & Qt.WindowType.WindowStaysOnTopHint
     for state, command in (("idle", "read"), ("paused", "play")):
         receive(panel, state)
@@ -151,11 +152,13 @@ def test_kwin_script_places_and_resizes_without_window_shown_signal(panel):
         var reader = {
             desktopFileName: 'kokoro-reader', resourceClass: 'kokoro-reader',
             caption: 'Kokoro Reader',
+            keepAbove: false,
             frameGeometry: {x: 0, y: 0, width: 302, height: 60},
             frameGeometryChanged: signal()
         };
         var unrelated = {
             desktopFileName: 'editor', caption: 'Kokoro Reader',
+            keepAbove: false,
             frameGeometry: {x: 7, y: 8, width: 800, height: 600},
             frameGeometryChanged: signal()
         };
@@ -173,13 +176,14 @@ def test_kwin_script_places_and_resizes_without_window_shown_signal(panel):
     script = Path(__file__).resolve().parents[1] / "kwin/kokoro-reader-dock/contents/code/main.js"
     result = engine.evaluate(script.read_text(), str(script))
     assert not result.isError(), result.toString()
-    assert engine.evaluate("reader.frameGeometry.x === 909 && reader.frameGeometry.y === 54").toBool()
+    assert engine.evaluate("reader.frameGeometry.x === 909 && reader.frameGeometry.y === 54 && reader.keepAbove").toBool()
     result = engine.evaluate("""
         reader.frameGeometry.width = 480;
         reader.frameGeometryChanged.callback();
         workspace.windowAdded.callback(unrelated);
         reader.frameGeometry.x === 820 && reader.frameGeometry.y === 54
             && unrelated.frameGeometry.x === 7 && unrelated.frameGeometry.y === 8
+            && reader.keepAbove && !unrelated.keepAbove
             && unrelated.frameGeometryChanged.callback === undefined;
     """)
     assert not result.isError(), result.toString()

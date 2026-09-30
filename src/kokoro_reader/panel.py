@@ -145,9 +145,7 @@ class Panel(DockShell):
         layout.addLayout(row)
         self.top = QCheckBox("Manter janela por cima")
         self.top.setChecked(True)
-        self.top.setToolTip("Mantém o app à frente das outras janelas, para acessar os controles enquanto estuda.")
-        self.top.toggled.connect(self.keep_on_top)
-        layout.addWidget(self.top)
+        self.top.hide()  # compatibility attribute; KWin owns the dock's stacking
         self.motion = QCheckBox("Reduzir movimento")
         self.motion.setChecked(self.reduced_motion)
         self.motion.setToolTip("Abre e recolhe imediatamente, sem animação.")

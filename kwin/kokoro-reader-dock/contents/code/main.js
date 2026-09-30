@@ -9,6 +9,8 @@ function isReader(window) {
 
 function attach(window) {
     if (!isReader(window)) return;
+    // Wayland can ignore Qt's WindowStaysOnTopHint. The compositor owns stacking.
+    window.keepAbove = true;
     let placing = false;
     function place() {
         if (placing) return;
