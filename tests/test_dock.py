@@ -136,7 +136,8 @@ def test_kwin_install_is_scoped_and_preserves_existing_package(tmp_path, monkeyp
     assert destination.with_name("metadata.json.before-install").read_text() == "previous package"
     assert calls[0] == ["/tools/kwriteconfig6", "--file", "kwinrc", "--group", "Plugins",
                         "--key", "kokoro-reader-dockEnabled", "true"]
-    assert calls[1:] == [["/tools/qdbus6", "org.kde.KWin", "/KWin", "reconfigure"],
+    assert calls[1:] == [["/tools/qdbus6", "org.kde.KWin", "/Scripting", "unloadScript", "kokoro-reader-dock"],
+                         ["/tools/qdbus6", "org.kde.KWin", "/KWin", "reconfigure"],
                          ["/tools/qdbus6", "org.kde.KWin", "/Scripting", "start"]]
 
 

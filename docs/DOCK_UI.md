@@ -27,7 +27,9 @@ perpétua ou temporizador de reposicionamento. O polling existente continua em
 Wayland entrega posicionamento ao compositor: `QWidget.move()` não garante
 coordenadas. No Plasma 6, o instalador instala o pacote próprio
 `kwin/kokoro-reader-dock` e habilita somente a chave
-`[Plugins] kokoro-reader-dockEnabled` com `kwriteconfig6`, seguido de reconfigure.
+`[Plugins] kokoro-reader-dockEnabled` com `kwriteconfig6`. Descarrega somente o
+script `kokoro-reader-dock` antes de reconfigure/start para recarregar seu código
+nas atualizações, pois reconfigure sozinho pode manter a instância anterior.
 O script define `keepAbove = true` apenas na janela do Kokoro Reader, porque
 Wayland pode ignorar o hint de empilhamento solicitado pelo Qt.
 Arquivos diferentes do mesmo pacote são preservados como `.before-install`.
@@ -45,6 +47,7 @@ essa integração. Para instalar manualmente:
 ```sh
 kpackagetool6 --type=KWin/Script -i kwin/kokoro-reader-dock
 kwriteconfig6 --file kwinrc --group Plugins --key kokoro-reader-dockEnabled true
+qdbus6 org.kde.KWin /Scripting unloadScript kokoro-reader-dock
 qdbus6 org.kde.KWin /KWin reconfigure
 qdbus6 org.kde.KWin /Scripting start
 ```

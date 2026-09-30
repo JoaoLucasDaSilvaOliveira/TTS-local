@@ -33,6 +33,9 @@ def install_kwin_dock(source, data_root=None):
     if writer and dbus:
         subprocess.run([writer, "--file", "kwinrc", "--group", "Plugins",
                         "--key", "kokoro-reader-dockEnabled", "true"], check=True)
+        # KWin otherwise keeps the old JS instance after copying an update.
+        subprocess.run([dbus, "org.kde.KWin", "/Scripting", "unloadScript",
+                        "kokoro-reader-dock"], check=True)
         subprocess.run([dbus, "org.kde.KWin", "/KWin", "reconfigure"], check=True)
         subprocess.run([dbus, "org.kde.KWin", "/Scripting", "start"], check=True)
         print("KWin: posicionamento superior habilitado apenas para Kokoro Reader.")
