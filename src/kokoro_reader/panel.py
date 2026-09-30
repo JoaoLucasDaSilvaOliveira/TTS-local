@@ -76,6 +76,10 @@ class Panel(DockShell):
         self.compact_play.clicked.connect(self.compact_read_or_resume)
         self.compact_pause.clicked.connect(lambda: self.submit("pause"))
         self.compact_stop.clicked.connect(lambda: self.submit("stop"))
+        # One set of playback controls lives outside the collapsible body.
+        self.pause = self.compact_pause
+        self.play = self.compact_play
+        self.stop = self.compact_stop
         self.state = QLabel("Conectando ao leitor…")
         self.state.setWordWrap(True)
         layout.addWidget(self.state)
@@ -106,11 +110,8 @@ class Panel(DockShell):
         layout.addWidget(self.read)
         row = QHBoxLayout()
         self.previous = self.button("Anterior", "previous", QStyle.StandardPixmap.SP_MediaSkipBackward)
-        self.pause = self.button("Pausar", "pause", QStyle.StandardPixmap.SP_MediaPause)
-        self.play = self.button("Retomar", "play", QStyle.StandardPixmap.SP_MediaPlay)
-        self.stop = self.button("Parar", "stop", QStyle.StandardPixmap.SP_MediaStop)
         self.next = self.button("Próximo", "next", QStyle.StandardPixmap.SP_MediaSkipForward)
-        for button in (self.previous, self.pause, self.play, self.stop, self.next):
+        for button in (self.previous, self.next):
             button.setToolTip(button.text())
             button.setText("")
             row.addWidget(button)
@@ -268,13 +269,13 @@ class Panel(DockShell):
 
     def update_controls(self):
         busy = self.pending is not None and self.pending.command["command"] != "status"
-        active = self.connected and self.status.get("state") != "idle"
+        state = self.status.get("state")
+        active = self.connected and state in ("playing", "paused", "buffering")
         for button in self.controls:
             button.setEnabled(self.connected and not busy)
         for button in (self.previous, self.next, self.stop):
             button.setEnabled(active and not busy)
-        self.pause.setEnabled(active and self.status.get("state") != "paused" and not busy)
-        self.play.setEnabled(active and self.status.get("state") == "paused" and not busy)
+        self.compact_pause.setEnabled(active and state != "paused" and not busy)
         for button in (self.backward, self.forward):
             button.setEnabled(active and self.status.get("state") in ("playing", "paused") and not busy)
         self.speed.setEnabled(self.connected and not busy)
@@ -292,8 +293,6 @@ class Panel(DockShell):
             self.read.setEnabled(False)
             if self.status.get("state") == "idle":
                 self.compact_play.setEnabled(False)
-        self.compact_pause.setEnabled(self.pause.isEnabled())
-        self.compact_stop.setEnabled(self.stop.isEnabled())
         self.header.setToolTip(f"{self.state.text()} • Abrir controles • Escape recolhe")
 
     def refresh_input_size(self):

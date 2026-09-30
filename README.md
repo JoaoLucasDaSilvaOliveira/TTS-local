@@ -62,6 +62,8 @@ kokoro-readerctl panel
 
 O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada e pode ser desativada em **Reduzir movimento**. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
 
+Play/retomar, pausa e stop ficam somente no cabeçalho, acessíveis também quando a doca está expandida. O painel interno contém navegação, preferências e o botão para iniciar uma nova leitura, sem repetir os três controles do cabeçalho.
+
 Expandida, a doca oferece **Ler seleção / clipboard**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
 
 No KDE Plasma 6/Wayland, o instalador registra um script próprio do KWin que posiciona somente o Kokoro Reader e respeita a área disponível após os painéis do KDE. Não modifica monitores ou regras de outras janelas. `--without-kwin` pula essa integração; sem ela, Wayland não garante a posição pedida pelo Qt. Detalhes, acessibilidade e desativação em [docs/DOCK_UI.md](docs/DOCK_UI.md).

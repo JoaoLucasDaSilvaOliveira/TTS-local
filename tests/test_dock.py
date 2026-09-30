@@ -60,6 +60,35 @@ def test_compact_play_reads_or_resumes_without_accepting_window_focus(panel, mon
     assert not panel.compact_pause.isEnabled() and not panel.compact_stop.isEnabled()
 
 
+def test_header_controls_work_after_collapse_and_during_transition(panel, monkeypatch):
+    commands = []
+    monkeypatch.setattr(panel, "submit", lambda cmd, **kw: commands.append(cmd))
+    for animate in (False, True):
+        panel.set_expanded(True, animate=False)
+        receive(panel, "playing")
+        panel.set_expanded(False, animate=animate)
+        # The hidden/disabled body must never disable the persistent header.
+        receive(panel, "playing")
+        assert panel.compact_pause.isEnabled() and panel.compact_stop.isEnabled()
+        QTest.mouseClick(panel.compact_pause, Qt.MouseButton.LeftButton)
+        receive(panel, "paused")
+        assert panel.compact_play.isEnabled() and panel.compact_stop.isEnabled()
+        QTest.mouseClick(panel.compact_play, Qt.MouseButton.LeftButton)
+        receive(panel, "playing")
+        QTest.mouseClick(panel.compact_stop, Qt.MouseButton.LeftButton)
+        receive(panel, "idle")
+        assert not panel.compact_stop.isEnabled() and not panel.compact_pause.isEnabled()
+    assert commands == ["pause", "play", "stop"] * 2
+
+
+def test_playback_controls_are_single_header_instances(panel):
+    assert panel.pause is panel.compact_pause
+    assert panel.play is panel.compact_play
+    assert panel.stop is panel.compact_stop
+    for control in (panel.pause, panel.play, panel.stop):
+        assert not panel.body.isAncestorOf(control)
+
+
 def test_expansion_escape_and_interrupted_motion_preserve_cache(panel):
     panel.selection.update("Texto selecionado", "")
     panel.set_expanded(True)
