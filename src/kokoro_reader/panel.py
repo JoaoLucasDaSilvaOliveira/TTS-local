@@ -104,7 +104,7 @@ class Panel(DockShell):
         self.preview.setMinimumHeight(45)
         self.preview.setObjectName("preview")
         layout.addWidget(self.preview)
-        self.read = self.button("Ler seleção / clipboard", "read", QStyle.StandardPixmap.SP_MediaPlay)
+        self.read = self.button("Iniciar leitura", "read", QStyle.StandardPixmap.SP_MediaPlay)
         self.read.setObjectName("read")
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         layout.addWidget(self.read)
@@ -167,7 +167,7 @@ class Panel(DockShell):
         menu = QMenu(self)
         action = menu.addAction("Abrir painel")
         action.triggered.connect(self.show_panel)
-        for label, command in (("Ler seleção / clipboard", "read"), ("Pausar", "pause"),
+        for label, command in (("Iniciar leitura", "read"), ("Pausar", "pause"),
                                ("Retomar", "play"), ("Anterior", "previous"),
                                ("Próximo", "next"), ("Parar", "stop")):
             action = QAction(label, menu)
@@ -278,7 +278,7 @@ class Panel(DockShell):
         self.start.setVisible(not self.connected)
         self.start.setEnabled(not busy)
         self.compact_play.setEnabled(self.connected and not busy and self.status.get("state") in ("idle", "paused"))
-        label = "Retomar" if self.status.get("state") == "paused" else "Ler seleção / clipboard"
+        label = "Retomar" if self.status.get("state") == "paused" else "Iniciar leitura"
         self.compact_play.setToolTip(label)
         self.compact_play.setAccessibleName(label)
         if self.files.document is not None and self.status.get("state") == "idle":
@@ -312,7 +312,7 @@ class Panel(DockShell):
         self.preview.setText(preview_text(self.selection.text) or "Selecione ou copie um texto para ver a prévia.")
         source = "seleção" if self.selection.source == "primary" else "clipboard"
         self.preview_title.setText(f"Prévia: {source} ({len(self.selection.text)} caracteres)" if self.selection.text else "Prévia da seleção / clipboard")
-        self.read.setText("Ler seleção / clipboard")
+        self.read.setText("Iniciar leitura")
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         self.refresh_input_size()
         self.update_controls()

@@ -49,6 +49,26 @@ def test_speed_poll_does_not_send_command(panel, monkeypatch):
     assert commands == []
 
 
+def test_read_label_stays_consistent_after_poll_and_file_clear(panel, tmp_path):
+    from kokoro_reader.files import load_document
+    panel.receive(status(_selection=("Texto selecionado.", "")), None, False)
+    assert panel.read.text() == "Iniciar leitura"
+    assert panel.compact_play.toolTip() == panel.compact_play.accessibleName() == "Iniciar leitura"
+    labels = [action.text() for action in panel.tray.contextMenu().actions()]
+    assert "Iniciar leitura" in labels and "Ler seleção / clipboard" not in labels
+    panel.receive(status("paused"), None, False)
+    assert panel.compact_play.toolTip() == "Retomar"
+    path = tmp_path / "estudo.txt"
+    path.write_text("Texto do arquivo.")
+    document = load_document(path)
+    panel.files.controller.document = document
+    panel.files._loaded(document)
+    assert panel.read.text() == "Ler arquivo"
+    panel.files.clear()
+    panel.receive(status(), None, False)
+    assert panel.read.text() == panel.compact_play.toolTip() == "Iniciar leitura"
+
+
 def test_commands_clicked_during_poll_are_queued(panel):
     from kokoro_reader.panel import Request
     panel.pending = Request({"command": "status"})
