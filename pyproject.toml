@@ -3,7 +3,7 @@ name = "kokoro-reader"
 version = "0.1.0"
 description = "Leitor local em português para KDE Wayland"
 requires-python = ">=3.12,<3.13"
-dependencies = ["kokoro==0.9.4", "soundfile==0.13.1", "torch==2.6.0", "huggingface-hub==0.34.4", "numpy==2.2.6"]
+dependencies = ["kokoro==0.9.4", "soundfile==0.13.1", "torch==2.6.0", "huggingface-hub==0.34.4", "numpy==2.2.6", "pypdf==6.19.0"]
 
 [project.optional-dependencies]
 gui = ["pyside6-essentials==6.10.2"]

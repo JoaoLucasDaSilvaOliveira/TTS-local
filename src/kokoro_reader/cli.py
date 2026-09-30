@@ -50,6 +50,7 @@ def main():
     group = read.add_mutually_exclusive_group()
     group.add_argument("--text", help="texto explícito; não consulta clipboard")
     group.add_argument("--stdin", action="store_true", help="texto vindo de stdin")
+    group.add_argument("--file", type=Path, help="arquivo local .txt, .md ou PDF pesquisável")
     for command in ("play", "pause", "toggle", "stop", "previous", "next", "seek-forward", "seek-backward", "faster", "slower", "status", "serve", "download", "panel"):
         commands.add_parser(command)
     commands.add_parser("voice").add_argument("value", choices=VOICES)
@@ -77,10 +78,14 @@ def main():
             return
         request = {"command": args.command}
         if args.command == "read":
-            text = sys.stdin.read(60_001) if args.stdin else args.text if args.text is not None else read_selection()
-            if not text.strip():
-                raise ValueError("Seleção e clipboard vazios")
-            request.update(text=text, source={"kind": "stdin" if args.stdin else "text" if args.text is not None else "wayland"})
+            if args.file is not None:
+                from .files import load_document
+                request.update(load_document(args.file).read_payload)
+            else:
+                text = sys.stdin.read(60_001) if args.stdin else args.text if args.text is not None else read_selection()
+                if not text.strip():
+                    raise ValueError("Seleção e clipboard vazios")
+                request.update(text=text, source={"kind": "stdin" if args.stdin else "text" if args.text is not None else "wayland"})
         if hasattr(args, "value"):
             request["value"] = args.value
         print(json.dumps(send(request), ensure_ascii=False, indent=2))
