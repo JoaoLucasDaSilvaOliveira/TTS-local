@@ -214,3 +214,17 @@ interface permanecem na doca, CLI em stderr e serviço no journal.
 
 Merge autorizado não equivale a uma nova validação humana de prosódia/efeitos,
 nem confirma teste dentro de Obsidian/Zed ou novo login.
+
+## Limite de início — 2026-09-30
+
+**120 testes passaram.** A primeira síntese usa no máximo 100 caracteres;
+as demais continuam até 220. Regressões verificam seleção de vírgula/ponto e
+vírgula, fallback entre palavras, conteúdo completo, ausência de newline nos
+trechos, preservação de parágrafos e agrupamento que não desfaz o limite inicial.
+Os três exemplos explícitos do usuário continuam válidos.
+
+Benchmark isolado CPU documentado em [LATENCY.md](LATENCY.md): 8,168 s para o
+trecho inicial antigo de 196 caracteres e 3,451 s para o novo de 92 caracteres.
+Não é medida de início audível; a leitura pausada do usuário foi preservada.
+Instalação não altera um processo já carregado: reinício do serviço ainda é
+necessário para ativar esta mudança e validar a reprodução real.

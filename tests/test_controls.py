@@ -56,6 +56,15 @@ async def test_service_uses_punctuation_and_blank_lines_not_soft_wraps(reader, t
     assert reader.status()["segment_count"] == len(expected)
 
 
+async def test_service_bounds_first_audio_but_not_every_segment(reader):
+    text = "Estudar com atenção permite compreender os conceitos e revisar os detalhes " * 8
+    await reader.dispatch({"command": "read", "text": text})
+    await ready(reader)
+    assert len(reader.session.texts[0]) <= 100
+    assert any(len(chunk) > 100 for chunk in reader.session.texts[1:])
+    assert " ".join(reader.session.texts) == text.strip()
+
+
 async def test_pause_navigation_and_eof(reader):
     await reader.dispatch({"command": "read", "text": "Primeiro.\n\nSegundo."})
     await ready(reader)

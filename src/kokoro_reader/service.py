@@ -151,7 +151,7 @@ class Reader:
         async with self.lock:
             cmd = request.get("command")
             if cmd == "read":
-                texts = segment(clean_markdown(request.get("text", "")), min_chars=100, first_min_chars=0)
+                texts = segment(clean_markdown(request.get("text", "")), min_chars=100, first_min_chars=0, first_limit=100)
                 if not texts:
                     raise ValueError("Texto vazio após limpeza")
                 source = request.get("source", {})

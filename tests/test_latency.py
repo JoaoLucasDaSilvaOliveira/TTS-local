@@ -22,6 +22,36 @@ def test_first_sentence_preserves_paragraphs_and_following_grouping():
         segment(text, first_min_chars=-1)
 
 
+@pytest.mark.parametrize("punctuation", [",", ";"])
+def test_initial_limit_prefers_clause_and_keeps_rest_large(punctuation):
+    opening = "Este texto apresenta conceitos importantes para estudar com tranquilidade" + punctuation
+    text = opening + " depois " + "continuamos estudando com atenção " * 12
+    chunks = segment(clean_markdown(text), min_chars=100, first_min_chars=0, first_limit=100)
+    assert chunks[0] == opening
+    assert any(len(chunk) > 100 for chunk in chunks[1:])
+    assert max(map(len, chunks)) <= 220
+    assert " ".join(chunks) == text.strip()
+
+
+def test_initial_word_boundary_does_not_reintroduce_soft_line_pause_or_remerge():
+    text = "Estudar com calma\npermite entender os conceitos " * 8
+    normalized = clean_markdown(text)
+    chunks = segment(normalized, min_chars=100, first_min_chars=0, first_limit=100)
+    assert len(chunks[0]) <= 100
+    assert chunks[0].split()[-1] in normalized.split()
+    assert " ".join(chunks) == normalized.strip()
+    assert all("\n" not in chunk for chunk in chunks)
+    # Tail/short-sentence grouping must not undo the initial bound.
+    tail = "palavra " * 15 + "Fim."
+    assert len(segment(tail, min_chars=100, first_limit=100)[0]) <= 100
+    assert segment("Texto\nquebrado", first_limit=100) == ["Texto quebrado"]
+    assert segment("Texto.\nquebrado", first_min_chars=0, first_limit=100) == ["Texto.", "quebrado"]
+    assert segment("Texto\n\nquebrado", first_limit=100) == ["Texto", "quebrado"]
+    for value in (0, 15, 221):
+        with pytest.raises(ValueError):
+            segment(text, first_limit=value)
+
+
 def test_cache_has_byte_and_entry_bounds_and_voice_isolation():
     cache = AudioCache(max_bytes=24, max_entries=2)
     a = np.zeros(3, dtype=np.float32)

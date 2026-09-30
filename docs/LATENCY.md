@@ -7,11 +7,15 @@ pesos e três vozes locais. Nenhuma dependência foi adicionada.
 
 - O primeiro WAV toca assim que fica pronto; foi removida a espera artificial
   de até dois segundos pelo segundo trecho.
-- A primeira frase completa fica separada das seguintes. A regra normal de
+- A primeira frase fica separada das seguintes, com limite inicial de 100
+  caracteres quando a frase é longa. O corte prioriza vírgula/ponto e vírgula
+  entre 50 e 100 caracteres; sem pontuação, usa espaço entre palavras. Tokens
+  individuais maiores que o limite podem ser subdivididos, como antes.
+  Somente o primeiro trecho usa esse limite menor. A regra normal de
   agrupamento de 100 caracteres continua nos demais trechos; o limite máximo
   de 220 caracteres continuam iguais. Quebras simples viram espaços e apenas
-  linhas em branco marcam parágrafos. Uma frase
-  longa continua exigindo a síntese de seu trecho inteiro.
+  linhas em branco marcam parágrafos. Cada trecho ainda precisa ser sintetizado
+  por inteiro; esse ajuste não é streaming do áudio dentro de um trecho.
 - O produtor acorda o serviço quando um WAV fica pronto. O EOF é verificado
   a cada 20 ms, em vez de 80 ms, e o próximo WAV disponível é carregado na
   mesma verificação. Antes era necessário esperar outra verificação.
@@ -81,3 +85,32 @@ na mesma verificação, despertar do produtor, limites LRU/separação por voz,
 integridade das frases/parágrafos e cancelamento sem recriar arquivos. A aceitação
 audível no desktop ainda precisa verificar velocidade, pausas, navegação e
 troca de leitura com os três perfis de voz. O protocolo Unix permanece igual.
+
+## Primeiro trecho limitado — 2026-09-30
+
+Após remoção das quebras simples como limites de fala, frases iniciais longas
+podiam voltar a ocupar até 220 caracteres. O limite inicial agora é 100; o
+agrupamento de frases/tail não pode aumentá-lo novamente. Pontuação, texto
+completo, linhas em branco, cache e os limites normais seguintes são preservados.
+Não é inserida pontuação nem silêncio artificial. Cortar entre palavras pode,
+porém, modificar a prosódia do Kokoro; há mais uma transição de WAV, e a aceitação
+audível continua necessária.
+
+Benchmark CPU isolado, com modelo aquecido e mesma voz `pf_dora`: primeiro
+trecho anterior de 196 caracteres consumiu **8,168 s** (12,05 s de áudio);
+novo primeiro trecho, cortado na vírgula com 92 caracteres, consumiu **3,451 s**
+(5,85 s de áudio). Redução de aproximadamente 58% nessa amostra. Não compara
+duas sínteses do mesmo tamanho nem representa latência física do alto-falante.
+Carga/frequência da CPU podem alterar esses resultados; não promete início
+instantâneo. O texto público e reprodução da medição estão disponíveis com:
+
+```sh
+KOKORO_THREADS=2 PYTHONPATH=src .venv/bin/python scripts/benchmark_latency.py --long-opening
+```
+
+Nesse modo, o trecho completo e sua repetição vêm do cache preenchido pela
+medição anterior: não devem ser interpretados como inferência nova. Para medir
+IPC com reprodução, `scripts/benchmark_first_chunk.py --output caminho.json`
+exige serviço ocioso, toca texto público duas vezes e restaura voz/velocidade.
+Compare antes/depois após reiniciar o serviço para limpar o cache. A sessão
+instalada estava pausada nesta rodada; não foi interrompida para testar áudio.
