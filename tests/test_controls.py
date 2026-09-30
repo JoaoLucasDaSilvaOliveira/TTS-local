@@ -44,6 +44,18 @@ async def ready(reader):
     raise AssertionError("Producer não concluiu")
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("Texto\nquebrado", ["Texto quebrado"]),
+    ("Texto.\nquebrado", ["Texto.", "quebrado"]),
+    ("Texto\n\nquebrado", ["Texto", "quebrado"]),
+])
+async def test_service_uses_punctuation_and_blank_lines_not_soft_wraps(reader, text, expected):
+    await reader.dispatch({"command": "read", "text": text})
+    await ready(reader)
+    assert reader.session.texts == expected
+    assert reader.status()["segment_count"] == len(expected)
+
+
 async def test_pause_navigation_and_eof(reader):
     await reader.dispatch({"command": "read", "text": "Primeiro.\n\nSegundo."})
     await ready(reader)

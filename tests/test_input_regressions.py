@@ -4,6 +4,19 @@ from kokoro_reader.text import clean_markdown, segment
 from kokoro_reader.player import Player
 
 
+@pytest.mark.parametrize("source,cleaned,chunks", [
+    ("Texto\nquebrado", "Texto quebrado", ["Texto quebrado"]),
+    ("Texto.\nquebrado", "Texto. quebrado", ["Texto.", "quebrado"]),
+    ("Texto\n\nquebrado", "Texto\n\nquebrado", ["Texto", "quebrado"]),
+    ("Texto\r\nquebrado", "Texto quebrado", ["Texto quebrado"]),
+    ("Texto\n \t\nquebrado", "Texto\n\nquebrado", ["Texto", "quebrado"]),
+])
+def test_requested_speech_boundaries(source, cleaned, chunks):
+    assert clean_markdown(source) == cleaned
+    assert segment(cleaned, min_chars=100, first_min_chars=0) == chunks
+    assert all("\n" not in chunk for chunk in chunks)
+
+
 def test_soft_newlines_are_spaces_and_blank_lines_separate_paragraphs():
     assert segment(clean_markdown("Este é um trecho.\nEste é outro trecho."), min_chars=100) == [
         "Este é um trecho. Este é outro trecho."]

@@ -201,3 +201,16 @@ audível. A janela persistente conserva o visual existente; `frontend-design`
 e `ui-ux-pro-max` orientaram foco, reversão de animações e acessibilidade.
 Nenhuma skill/ferramenta Orca foi usada. Novo login e uso dentro de Obsidian/Zed
 não foram automatizados; a próxima aprovação E2E permanece pendente.
+
+## Ajuste final e autorização de merge — 2026-09-30
+
+Após autorização do usuário para merge com ajuste das quebras, a limpeza
+remove quebras simples antes da síntese e conserva linhas em branco. Regressões
+na limpeza, segmentação e serviço validam exatamente: `Texto\nquebrado`
+vira um trecho, `Texto.\nquebrado` preserva o ponto e suas duas frases, e
+`Texto\n\nquebrado` mantém dois parágrafos. Nenhum WAV recebe newline literal.
+**116 testes passaram.** Notificações do desktop estão desativadas; erros de
+interface permanecem na doca, CLI em stderr e serviço no journal.
+
+Merge autorizado não equivale a uma nova validação humana de prosódia/efeitos,
+nem confirma teste dentro de Obsidian/Zed ou novo login.

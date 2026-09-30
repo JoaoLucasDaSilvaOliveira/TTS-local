@@ -8,7 +8,7 @@ MAX_TEXT = 60_000
 def clean_markdown(text):
     if not isinstance(text, str) or len(text) > MAX_TEXT:
         raise ValueError(f"Texto inválido ou maior que {MAX_TEXT} caracteres")
-    text = text.replace("\r\n", "\n").replace("\x00", "")
+    text = text.replace("\r\n", "\n").replace("\r", "\n").replace("\x00", "")
     text = re.sub(r"\A\ufeff?---\s*\n.*?\n(?:---|\.\.\.)\s*(?:\n|$)", "", text, flags=re.S)
 
     def code(match):
@@ -39,8 +39,10 @@ def clean_markdown(text):
     text = re.sub(r"(\*\*|__|~~)(.*?)\1", r"\2", text)
     text = re.sub(r"(?<!\w)([*_])([^\n]+?)\1(?!\w)", r"\2", text)
     text = html.unescape(text)
-    text = re.sub(r"[ \t]+", " ", text)
-    return re.sub(r"\n\s*\n+", "\n\n", text).strip()
+    text = re.sub(r"\n[ \t]*\n(?:[ \t]*\n)*", "\n\n", text)
+    # Remove soft wraps before synthesis; retain blank-line paragraphs only.
+    text = re.sub(r"(?<!\n)\n(?!\n)", " ", text)
+    return re.sub(r"[ \t]+", " ", text).strip()
 
 
 def _split_long_sentence(sentence, limit):
