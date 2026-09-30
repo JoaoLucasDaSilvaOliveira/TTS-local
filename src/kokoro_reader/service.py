@@ -39,7 +39,6 @@ class Session:
     started: float = field(default_factory=time.perf_counter)
     first_playback: float | None = None
     waiting_since: float | None = None
-    buffer_deadline: float | None = None
     producer: asyncio.Task | None = None
 
 
@@ -51,6 +50,7 @@ class Reader:
         self.lock = asyncio.Lock()
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kokoro-cpu")
         self.metrics = {}
+        self.wakeup = asyncio.Event()
 
     async def stop(self):
         session, self.session = self.session, None
@@ -78,6 +78,7 @@ class Reader:
                 path = session.directory / f"{index:05}.wav"
                 sf.write(path, audio, 24000)
                 session.audio[index] = path
+                self.wakeup.set()
                 LOG.info("synthesis index=%s seconds=%.3f audio_seconds=%.3f", index, elapsed, len(audio) / 24000)
                 if index == 0:
                     self.metrics = {"first_synthesis_seconds": round(elapsed, 3), "first_audio_seconds": round(len(audio) / 24000, 3)}
@@ -100,16 +101,18 @@ class Reader:
             s = self.session
             if not s:
                 return
+            if s.loaded == s.revision and not s.paused and await self.player.command("get_property", "eof-reached"):
+                if s.index + 1 == len(s.texts):
+                    self.metrics["session_wall_seconds"] = round(time.perf_counter() - s.started, 3)
+                    LOG.info("session_complete %s", json.dumps(self.metrics))
+                    await self.stop()
+                    return
+                s.index += 1
+                s.revision += 1
+                s.waiting_since = time.perf_counter()
             if s.loaded != s.revision:
                 if s.index not in s.audio:
                     return
-                # Somente no início: até 2 s extras para preparar o próximo trecho.
-                # Navegação manual continua imediata quando o WAV já está pronto.
-                if s.first_playback is None and s.revision == 0 and len(s.texts) > 1:
-                    if s.buffer_deadline is None:
-                        s.buffer_deadline = time.perf_counter() + 2.0
-                    if 1 not in s.audio and time.perf_counter() < s.buffer_deadline:
-                        return
                 await self.player.command("loadfile", str(s.audio[s.index]), "replace")
                 await self.player.command("set_property", "speed", self.preferences.speed)
                 await self.player.command("set_property", "pause", s.paused)
@@ -124,15 +127,6 @@ class Reader:
                     LOG.info("first_playback seconds=%.3f", s.first_playback)
                     notify(f"Lendo {len(s.texts)} trechos com {s.voice}")
                 return
-            if not s.paused and await self.player.command("get_property", "eof-reached"):
-                if s.index + 1 == len(s.texts):
-                    self.metrics["session_wall_seconds"] = round(time.perf_counter() - s.started, 3)
-                    LOG.info("session_complete %s", json.dumps(self.metrics))
-                    await self.stop()
-                else:
-                    s.index += 1
-                    s.revision += 1
-                    s.waiting_since = time.perf_counter()
 
     def status(self):
         s = self.session
@@ -147,7 +141,7 @@ class Reader:
         async with self.lock:
             cmd = request.get("command")
             if cmd == "read":
-                texts = segment(clean_markdown(request.get("text", "")), min_chars=100)
+                texts = segment(clean_markdown(request.get("text", "")), min_chars=100, first_min_chars=0)
                 if not texts:
                     raise ValueError("Texto vazio após limpeza")
                 source = request.get("source", {})
@@ -158,6 +152,7 @@ class Reader:
                 self.session = s
                 self.metrics = {}
                 s.producer = asyncio.create_task(self.produce(s))
+                self.wakeup.set()
             elif cmd == "stop":
                 await self.stop()
             elif cmd in ("play", "pause", "toggle"):
@@ -173,6 +168,7 @@ class Reader:
                     s.index = max(0, min(len(s.texts) - 1, s.index + (1 if cmd == "next" else -1)))
                     s.revision += 1
                     await self.player.command("stop")
+                    self.wakeup.set()
             elif cmd in ("speed", "faster", "slower", "voice"):
                 p = Preferences(self.preferences.voice, self.preferences.speed)
                 if cmd == "voice":
@@ -203,6 +199,7 @@ async def serve():
             shutil.rmtree(path)
     started = time.perf_counter()
     engine = await asyncio.to_thread(Engine)
+    await asyncio.to_thread(engine.warmup, Preferences.load().voice)
     LOG.info("model_load seconds=%.3f", time.perf_counter() - started)
     player = Player(root)
     reader = None
@@ -243,9 +240,10 @@ async def serve():
         path.chmod(0o600)
         LOG.info("ready socket=%s", path)
         while not shutdown.is_set():
+            reader.wakeup.clear()
             await reader.tick()
             try:
-                await asyncio.wait_for(shutdown.wait(), 0.08)
+                await asyncio.wait_for(reader.wakeup.wait(), 0.02)
             except TimeoutError:
                 pass
     finally:
