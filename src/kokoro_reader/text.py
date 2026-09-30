@@ -44,12 +44,14 @@ def clean_markdown(text):
     return re.sub(r"\n\s*\n+", "\n\n", text).strip()
 
 
-def segment(text, limit=220, min_chars=0):
+def segment(text, limit=220, min_chars=0, first_min_chars=None):
     """Trechos curtos com IDs estáveis; não divide decimais nem siglas comuns."""
     if limit < 16:
         raise ValueError("Limite muito pequeno")
     if not 0 <= min_chars <= limit:
         raise ValueError("Tamanho mínimo inválido")
+    if first_min_chars is not None and not 0 <= first_min_chars <= limit:
+        raise ValueError("Tamanho mínimo inicial inválido")
     result = []
     for paragraph in re.split(r"\n+", text):
         paragraph_chunks = []
@@ -60,13 +62,15 @@ def segment(text, limit=220, min_chars=0):
         for sentence in re.split(r"(?<=[.!?…])\s+", protected):
             sentence = sentence.replace("\ue000", ".")
             for chunk in textwrap.wrap(sentence, width=limit, break_long_words=True, break_on_hyphens=False):
-                if (paragraph_chunks and len(paragraph_chunks[-1]) < min_chars
+                minimum = first_min_chars if first_min_chars is not None and not result and len(paragraph_chunks) == 1 else min_chars
+                if (paragraph_chunks and len(paragraph_chunks[-1]) < minimum
                         and len(paragraph_chunks[-1]) + 1 + len(chunk) <= limit):
                     paragraph_chunks[-1] += " " + chunk
                 else:
                     paragraph_chunks.append(chunk)
         # Evita uma última frase muito curta isolada quando cabe no trecho anterior.
-        if (len(paragraph_chunks) > 1 and len(paragraph_chunks[-1]) < min_chars
+        minimum = first_min_chars if first_min_chars is not None and not result and len(paragraph_chunks) == 2 else min_chars
+        if (len(paragraph_chunks) > 1 and len(paragraph_chunks[-1]) < minimum
                 and len(paragraph_chunks[-2]) + 1 + len(paragraph_chunks[-1]) <= limit):
             paragraph_chunks[-2] += " " + paragraph_chunks[-1]
             paragraph_chunks.pop()
