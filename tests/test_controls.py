@@ -106,6 +106,40 @@ async def test_preferences_and_bounds(reader):
         await reader.dispatch({"command": "speed", "value": float("nan")})
 
 
+async def test_speed_can_return_to_normal_after_minimum(reader):
+    descending = []
+    for _ in range(4):
+        status = await reader.dispatch({"command": "slower"})
+        descending.append(status["speed"])
+    assert descending == [0.90, 0.80, 0.75, 0.75]
+    ascending = []
+    for _ in range(3):
+        status = await reader.dispatch({"command": "faster"})
+        ascending.append(status["speed"])
+        assert Preferences.load().speed == status["speed"]
+        assert reader.player.commands[-1] == ("set_property", "speed", status["speed"])
+    assert ascending == [0.80, 0.90, 1.00]
+    for _ in range(5):
+        await reader.dispatch({"command": "faster"})
+    assert reader.preferences.speed == 1.50
+    for _ in range(5):
+        await reader.dispatch({"command": "slower"})
+    assert reader.preferences.speed == 1.00
+
+
+@pytest.mark.parametrize("custom,command,expected", [
+    (0.85, "faster", 0.90), (0.85, "slower", 0.80),
+    (1.25, "faster", 1.30), (1.25, "slower", 1.20),
+    (0.75, "slower", 0.75), (1.50, "faster", 1.50),
+])
+async def test_speed_custom_values_step_to_grid_and_limits(reader, custom, command, expected):
+    await reader.dispatch({"command": "speed", "value": custom})
+    assert reader.preferences.speed == custom
+    await reader.dispatch({"command": command})
+    assert reader.preferences.speed == expected
+    assert Preferences.load().speed == expected
+
+
 async def test_explicit_pause_play_and_seek(reader):
     await reader.dispatch({"command": "read", "text": "Uma leitura."})
     await ready(reader)

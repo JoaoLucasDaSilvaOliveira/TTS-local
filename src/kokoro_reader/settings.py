@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 VOICES = ("pf_dora", "pm_alex", "pm_santa")
+SPEED_STEPS = (0.75, 0.80, 0.90, 1.00, 1.10, 1.20, 1.30, 1.40, 1.50)
 
 
 def config_dir():
@@ -37,6 +38,21 @@ def validate_speed(value):
     if not math.isfinite(value) or not 0.75 <= value <= 1.5:
         raise ValueError("Velocidade deve estar entre 0.75 e 1.50")
     return round(value, 2)
+
+
+def step_speed(value, direction):
+    """Move along a fixed grid anchored at 1.00, including the 0.75 endpoint.
+
+    Explicit/custom speeds remain valid; +/- moves to the next grid neighbor.
+    """
+    value = validate_speed(value)
+    if direction not in (-1, 1):
+        raise ValueError("Direção de velocidade inválida")
+    steps = SPEED_STEPS if direction == 1 else reversed(SPEED_STEPS)
+    for speed in steps:
+        if (speed > value if direction == 1 else speed < value):
+            return speed
+    return SPEED_STEPS[-1] if direction == 1 else SPEED_STEPS[0]
 
 
 @dataclass

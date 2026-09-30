@@ -123,7 +123,7 @@ Selecione texto no Obsidian ou Zed e pressione Meta+Alt+R. Caso o aplicativo nã
 ~/.local/bin/kokoro-readerctl stop
 ```
 
-Velocidade varia entre 0,75x e 1,50x; subir/descer soma/subtrai 0,10x e satura nos limites (o último passo pode ser menor). O mpv preserva o tom; mudanças têm efeito durante a reprodução. Voz e velocidade são salvas atomicamente em `preferences.json`. A mudança de voz vale para a próxima leitura, mantendo a voz da fila atual. `toggle` pausa/retoma inclusive durante buffering; anterior/próximo vai ao início do trecho, respeita pausa e limita-se à fila atual. Uma nova leitura substitui a anterior. Ao terminar, a fila e seus WAVs são removidos; anterior não revive uma leitura concluída.
+Velocidade varia entre 0,75x e 1,50x. Subir/descer percorre a escala fixa `0,75 → 0,80 → 0,90 → 1,00 → 1,10 → 1,20 → 1,30 → 1,40 → 1,50`, saturando nos limites. O passo de 0,05 só liga o mínimo à escala de 0,10; assim é possível voltar a 1,00 após atingir os limites. Valores manuais como 1,25 são aceitos; o próximo −/+ vai para 1,20/1,30. O mpv preserva o tom; mudanças têm efeito durante a reprodução. Voz e velocidade são salvas atomicamente em `preferences.json`. A mudança de voz vale para a próxima leitura, mantendo a voz da fila atual. `toggle` pausa/retoma inclusive durante buffering; anterior/próximo vai ao início do trecho, respeita pausa e limita-se à fila atual. Uma nova leitura substitui a anterior. Ao terminar, a fila e seus WAVs são removidos; anterior não revive uma leitura concluída.
 
 ## Limpeza, fila e privacidade
 

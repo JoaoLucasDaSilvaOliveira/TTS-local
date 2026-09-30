@@ -18,7 +18,7 @@ from pathlib import Path
 from .engine import Engine
 from .notify import notify
 from .player import Player
-from .settings import Preferences, runtime_dir, validate_speed, validate_voice
+from .settings import Preferences, runtime_dir, step_speed, validate_speed, validate_voice
 from .text import clean_markdown, segment
 
 LOG = logging.getLogger(__name__)
@@ -186,7 +186,7 @@ class Reader:
                 elif cmd == "speed":
                     p.speed = validate_speed(request.get("value"))
                 else:
-                    p.speed = round(max(0.75, min(1.5, p.speed + (0.1 if cmd == "faster" else -0.1))), 2)
+                    p.speed = step_speed(p.speed, 1 if cmd == "faster" else -1)
                 p.save()
                 self.preferences = p
                 await self.player.command("set_property", "speed", p.speed)

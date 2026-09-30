@@ -115,9 +115,11 @@ Em **Configurações do Sistema → Teclado → Atalhos**, adicione comandos/scr
 
 Se o editor não publicar seleção primária, copie com `Ctrl+C`. O compositor pode ativar a doca ao clicar; o cache de seleção e os atalhos globais ajudam a preservar o fluxo. Consulte o [manual](docs/USAGE.md) para todos os controles e detalhes operacionais.
 
+Os botões/atalhos de velocidade usam a escala `0,75 → 0,80 → 0,90 → 1,00 → … → 1,50`: passos de 0,10, exceto a ligação de 0,05 com o mínimo. É possível voltar a 1,00 após atingir qualquer limite. Valores manuais como 1,25 continuam válidos; o próximo −/+ vai ao vizinho da escala.
+
 ## Testes e desempenho
 
-A suíte registrada contém **120 testes**, cobrindo limpeza e segmentação, seleção/clipboard, documentos, preferências, controles, cancelamento, cache e ciclo de vida da janela. Testes Qt usam backend offscreen; scripts opt-in verificam reprodução e a superfície nativa em Wayland. A validação foi executada localmente; não há badge de CI ou alegação de cobertura percentual.
+A suíte registrada contém **127 testes**, cobrindo limpeza e segmentação, seleção/clipboard, documentos, preferências, controles, cancelamento, cache e ciclo de vida da janela. Testes Qt usam backend offscreen; scripts opt-in verificam reprodução e a superfície nativa em Wayland. A validação foi executada localmente; não há badge de CI ou alegação de cobertura percentual.
 
 ```bash
 uv sync --python 3.12 --locked --extra gui

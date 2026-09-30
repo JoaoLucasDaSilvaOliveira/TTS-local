@@ -228,3 +228,14 @@ trecho inicial antigo de 196 caracteres e 3,451 s para o novo de 92 caracteres.
 Não é medida de início audível; a leitura pausada do usuário foi preservada.
 Instalação não altera um processo já carregado: reinício do serviço ainda é
 necessário para ativar esta mudança e validar a reprodução real.
+
+## Velocidade ancorada em 1,00 — 2026-09-30
+
+**127 testes passaram.** `faster`/`slower` percorrem uma escala fixa com 0,75,
+0,80 e passos de 0,10 até 1,50, em vez de deslocar a escala após atingir o mínimo.
+Regressões verificam ida/volta de 1,00 aos limites, saturação, valores manuais
+fora da escala, persistência e envio da velocidade ao mpv.
+
+Com o serviço real ocioso, foi verificada a sequência 0,75 → 0,80 → 0,90 → 1,00
+e o comando de redução de 1,25 para 1,20. A preferência anterior foi restaurada.
+A instalação foi atualizada e o serviço reiniciado sem interromper leitura.
