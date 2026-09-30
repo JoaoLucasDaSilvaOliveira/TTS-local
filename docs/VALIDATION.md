@@ -131,3 +131,24 @@ As skills `frontend-design` e `ui-ux-pro-max` foram instaladas no ambiente do
 agente e influenciaram hierarquia, ícones originais, foco, contraste, fonte do
 sistema e movimento reduzido. A implementação permanece Qt nativa e offline;
 não incorpora frameworks web, serviços remotos ou assets protegidos do Coucou.
+
+## Rodada de bugfix — controles compactos
+
+Na branch `fix/compact-playback-controls`, o cabeçalho passa a ter o único
+conjunto de play/retomar, pause e stop. Antes, ele copiava `isEnabled()` dos
+botões internos, que herdavam o estado desabilitado do painel ao recolher.
+Agora os controles usam diretamente o estado do serviço e ficam fora do corpo
+recolhível. O corpo mantém anterior/próximo, ±10 s e iniciar uma nova leitura.
+
+78 testes passaram. Os dois testes novos falhavam antes da correção e cobrem
+cliques após recolher, durante transição e ausência de instâncias duplicadas.
+`scripts/check_compact_controls.py` testa cliques Qt contra o serviço real em
+Wayland, incluindo um ciclo após expandir/recolher, sem usar seleção privada.
+Houve uma falha inicial nessa verificação real; diagnóstico adicional foi
+incluído no script e a repetição passou. Isso não substitui o teste humano.
+
+**E2E do usuário pendente:** ler com a doca recolhida, pausar, retomar e parar;
+expandir/recolher e repetir. A correção é instalada para essa validação, mas a
+`main` permanece inalterada até aprovação. Nenhuma otimização de síntese ou
+mudança do ciclo de janela foi implementada nesta rodada. As skills de UI
+orientaram o conjunto único de controles e seus estados acessíveis.

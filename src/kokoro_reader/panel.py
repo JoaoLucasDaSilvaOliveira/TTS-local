@@ -76,6 +76,10 @@ class Panel(DockShell):
         self.compact_play.clicked.connect(self.compact_read_or_resume)
         self.compact_pause.clicked.connect(lambda: self.submit("pause"))
         self.compact_stop.clicked.connect(lambda: self.submit("stop"))
+        # One set of playback controls lives outside the collapsible body.
+        self.pause = self.compact_pause
+        self.play = self.compact_play
+        self.stop = self.compact_stop
         self.state = QLabel("Conectando ao leitor…")
         self.state.setWordWrap(True)
         layout.addWidget(self.state)
@@ -100,17 +104,14 @@ class Panel(DockShell):
         self.preview.setMinimumHeight(45)
         self.preview.setObjectName("preview")
         layout.addWidget(self.preview)
-        self.read = self.button("Ler seleção / clipboard", "read", QStyle.StandardPixmap.SP_MediaPlay)
+        self.read = self.button("Iniciar leitura", "read", QStyle.StandardPixmap.SP_MediaPlay)
         self.read.setObjectName("read")
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         layout.addWidget(self.read)
         row = QHBoxLayout()
         self.previous = self.button("Anterior", "previous", QStyle.StandardPixmap.SP_MediaSkipBackward)
-        self.pause = self.button("Pausar", "pause", QStyle.StandardPixmap.SP_MediaPause)
-        self.play = self.button("Retomar", "play", QStyle.StandardPixmap.SP_MediaPlay)
-        self.stop = self.button("Parar", "stop", QStyle.StandardPixmap.SP_MediaStop)
         self.next = self.button("Próximo", "next", QStyle.StandardPixmap.SP_MediaSkipForward)
-        for button in (self.previous, self.pause, self.play, self.stop, self.next):
+        for button in (self.previous, self.next):
             button.setToolTip(button.text())
             button.setText("")
             row.addWidget(button)
@@ -155,11 +156,6 @@ class Panel(DockShell):
         self.top = QCheckBox("Manter janela por cima")
         self.top.setChecked(True)
         self.top.hide()  # compatibility attribute; KWin owns the dock's stacking
-        self.motion = QCheckBox("Reduzir movimento")
-        self.motion.setChecked(self.reduced_motion)
-        self.motion.setToolTip("Abre e recolhe imediatamente, sem animação.")
-        self.motion.toggled.connect(self.set_reduced_motion)
-        layout.addWidget(self.motion)
         self.start = QPushButton("Iniciar serviço")
         self.start.clicked.connect(lambda: self.submit("start-service"))
         self.start.hide()
@@ -171,7 +167,7 @@ class Panel(DockShell):
         menu = QMenu(self)
         action = menu.addAction("Abrir painel")
         action.triggered.connect(self.show_panel)
-        for label, command in (("Ler seleção / clipboard", "read"), ("Pausar", "pause"),
+        for label, command in (("Iniciar leitura", "read"), ("Pausar", "pause"),
                                ("Retomar", "play"), ("Anterior", "previous"),
                                ("Próximo", "next"), ("Parar", "stop")):
             action = QAction(label, menu)
@@ -268,13 +264,13 @@ class Panel(DockShell):
 
     def update_controls(self):
         busy = self.pending is not None and self.pending.command["command"] != "status"
-        active = self.connected and self.status.get("state") != "idle"
+        state = self.status.get("state")
+        active = self.connected and state in ("playing", "paused", "buffering")
         for button in self.controls:
             button.setEnabled(self.connected and not busy)
         for button in (self.previous, self.next, self.stop):
             button.setEnabled(active and not busy)
-        self.pause.setEnabled(active and self.status.get("state") != "paused" and not busy)
-        self.play.setEnabled(active and self.status.get("state") == "paused" and not busy)
+        self.compact_pause.setEnabled(active and state != "paused" and not busy)
         for button in (self.backward, self.forward):
             button.setEnabled(active and self.status.get("state") in ("playing", "paused") and not busy)
         self.speed.setEnabled(self.connected and not busy)
@@ -282,7 +278,7 @@ class Panel(DockShell):
         self.start.setVisible(not self.connected)
         self.start.setEnabled(not busy)
         self.compact_play.setEnabled(self.connected and not busy and self.status.get("state") in ("idle", "paused"))
-        label = "Retomar" if self.status.get("state") == "paused" else "Ler seleção / clipboard"
+        label = "Retomar" if self.status.get("state") == "paused" else "Iniciar leitura"
         self.compact_play.setToolTip(label)
         self.compact_play.setAccessibleName(label)
         if self.files.document is not None and self.status.get("state") == "idle":
@@ -292,8 +288,6 @@ class Panel(DockShell):
             self.read.setEnabled(False)
             if self.status.get("state") == "idle":
                 self.compact_play.setEnabled(False)
-        self.compact_pause.setEnabled(self.pause.isEnabled())
-        self.compact_stop.setEnabled(self.stop.isEnabled())
         self.header.setToolTip(f"{self.state.text()} • Abrir controles • Escape recolhe")
 
     def refresh_input_size(self):
@@ -318,7 +312,7 @@ class Panel(DockShell):
         self.preview.setText(preview_text(self.selection.text) or "Selecione ou copie um texto para ver a prévia.")
         source = "seleção" if self.selection.source == "primary" else "clipboard"
         self.preview_title.setText(f"Prévia: {source} ({len(self.selection.text)} caracteres)" if self.selection.text else "Prévia da seleção / clipboard")
-        self.read.setText("Ler seleção / clipboard")
+        self.read.setText("Iniciar leitura")
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         self.refresh_input_size()
         self.update_controls()

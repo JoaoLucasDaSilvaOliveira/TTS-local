@@ -89,7 +89,7 @@ class DockShell(QWidget):
         self.header.setToolTip("Abrir controles • Escape recolhe")
         self.header.clicked.connect(lambda: self.set_expanded(not self.expanded))
         row.addWidget(self.header, 1)
-        self.compact_play = self.icon_button("play", "Ler seleção / clipboard")
+        self.compact_play = self.icon_button("play", "Iniciar leitura")
         self.compact_pause = self.icon_button("pause", "Pausar")
         self.compact_stop = self.icon_button("stop", "Parar")
         for button in (self.compact_play, self.compact_pause, self.compact_stop):

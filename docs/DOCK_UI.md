@@ -16,9 +16,10 @@ A superfície azul de leitura, a marca lavanda e os SVGs em
 que se abre no topo foi inspirado em [Coucou](https://github.com/Louis-CFM/coucou);
 nenhum personagem, ícone, som ou mídia desse projeto foi copiado.
 
-As transições de 180 ms só ocorrem ao abrir/recolher. “Reduzir movimento” é
-persistido em `~/.config/kokoro-reader/dock.ini` (respeita `XDG_CONFIG_HOME`).
-`KOKORO_REDUCED_MOTION=1` desativa movimento desde o início. Não há animação
+As transições de 180 ms só ocorrem ao abrir/recolher. A opção “Reduzir movimento”
+foi removida da interface a pedido do usuário. O override técnico
+`KOKORO_REDUCED_MOTION=1` e a preferência antiga em `dock.ini` continuam disponíveis
+para acessibilidade, sem acrescentar controles ao painel. Não há animação
 perpétua ou temporizador de reposicionamento. O polling existente continua em
 750 ms para acompanhar seleção e serviço; o processo Qt não carrega modelo/áudio.
 
