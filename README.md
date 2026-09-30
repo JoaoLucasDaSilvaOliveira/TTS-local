@@ -60,11 +60,11 @@ kokoro-reader-panel
 kokoro-readerctl panel
 ```
 
-O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
+O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada, redimensionando a mesma janela nativa sem fechar/reabrir. Os botões compactos não pedem foco de widget, mas o KWin pode ativar a janela ao clicar. Se necessário, copie a seleção antes do clique; o app também mantém seu cache de seleção. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa. Detalhes em [docs/STABLE_DOCK.md](docs/STABLE_DOCK.md).
 
 Play/retomar, pausa e stop ficam somente no cabeçalho, acessíveis também quando a doca está expandida. O painel interno contém navegação, preferências e o botão para iniciar uma nova leitura, sem repetir os três controles do cabeçalho.
 
-Expandida, a doca oferece **Ler seleção / clipboard**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
+Expandida, a doca oferece **Iniciar leitura**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
 
 No KDE Plasma 6/Wayland, o instalador registra um script próprio do KWin que posiciona somente o Kokoro Reader e respeita a área disponível após os painéis do KDE. Não modifica monitores ou regras de outras janelas. `--without-kwin` pula essa integração; sem ela, Wayland não garante a posição pedida pelo Qt. Detalhes, acessibilidade e desativação em [docs/DOCK_UI.md](docs/DOCK_UI.md).
 
@@ -148,6 +148,8 @@ mpv samples/pm_santa.wav
 O comando gera a mesma frase nas três vozes, WAV 24 kHz e `metrics.json` com carga do modelo, tempo de síntese, duração do áudio e fator de tempo real (síntese/duração, menor que 1 significa mais rápido que a fala). Arquivos de amostras são artefatos intencionais, não temporários; ficam até você removê-los. Os WAVs e a pasta `samples` não são versionados; gere-os com o comando acima. As medições da rodada inicial estão em [docs/voice-samples-results.json](docs/voice-samples-results.json).
 
 `status` e o journal registram primeira síntese, tempo até o comando de primeira reprodução e duração total da sessão. O tempo até reprodução mede envio aceito pelo mpv, não latência física até o alto-falante. Consulte [docs/VALIDATION.md](docs/VALIDATION.md) para medições feitas e testes pendentes.
+
+O leitor começa pela primeira frase completa, sem esperar artificialmente o segundo WAV. Áudio repetido com a mesma voz é reutilizado em RAM (até 32 MiB/64 entradas); texto novo continua exigindo inferência CPU. O modelo aquece antes de aceitar comandos no início do serviço. Estratégia, benchmark reproduzível e limites de continuidade em [docs/LATENCY.md](docs/LATENCY.md).
 
 ## Diagnóstico e inicialização no login
 

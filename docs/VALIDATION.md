@@ -152,3 +152,52 @@ expandir/recolher e repetir. A correção é instalada para essa validação, ma
 `main` permanece inalterada até aprovação. Nenhuma otimização de síntese ou
 mudança do ciclo de janela foi implementada nesta rodada. As skills de UI
 orientaram o conjunto único de controles e seus estados acessíveis.
+
+## Aprovação do bugfix e integração de latência/doca — 2026-09-30
+
+O usuário aprovou o E2E dos controles compactos ("bugfix green"). A correção,
+a remoção da opção visível de movimento reduzido e o rótulo "Iniciar leitura"
+foram integrados e publicados na `main` em `6068b5f`.
+
+As duas features seguintes partiram desse mesmo HEAD, em worktrees e agentes
+separados. A integração permanece em `feat/latency-stable-integration` até
+aprovação humana. A suíte integrada passou com **97 testes**. Os testes antigos
+de foco foram ajustados: a janela agora é permanentemente capaz de receber
+foco; os botões compactos usam `NoFocus`. O teste de fonte ampliada mostra sua
+janela explicitamente, sem depender de expansão para abri-la.
+
+O probe real Qt Wayland realizou 23 transições sem trocar QWindow, winId,
+flags ou superfície e sem hide/show/close no top-level. Um observador temporário
+do KWin, filtrado pelo título e identidade do leitor, registrou uma única
+adição e uma única remoção do mesmo ID no início/fim do processo; nenhuma
+recriação intermediária. O observador foi descarregado após o teste. Isso não
+substitui a aceitação visual dos efeitos configurados pelo usuário.
+
+A checagem de áudio real encontrou uma corrida: o ACK de `loadfile` chega antes
+de mpv disponibilizar suas propriedades. A checagem EOF agora tenta novamente
+somente para `mpv: property unavailable`; desconexões e demais erros continuam
+visíveis. Há regressões para recuperação e propagação dos erros reais. O smoke
+aguarda abertura do WAV antes de medir posição ou testar seek.
+
+O IPC de `loadfile` agora aguarda tanto o ACK quanto `file-loaded`, em qualquer
+ordem e com timeout, antes de liberar consultas EOF. Isso impede consultar o
+estado do arquivo anterior durante abertura. Desconexões, falhas de decodificação
+e demais erros não são silenciados.
+
+Smoke final com cache reiniciado: saída PipeWire, início de leitura contínua
+em 1,653 s, 5,929 s de síntese para 8,875 s de áudio e espera de transição
+registrada de 0,026 s. Releitura: início em 0,808 s sem cache e 0,018 s com cache.
+Pausa, retomada, navegação, seek, velocidade, EOF, newline, limpeza e clipboard
+passaram. Resultado: [latency-smoke-results.json](latency-smoke-results.json).
+Métricas de fim usam EOF do mpv, não esgotamento físico do buffer do PipeWire:
+tempo de sessão pode ser menor que duração de áudio com dados já enfileirados.
+Não comprovam ausência de cortes ou lacunas audíveis; isso exige E2E humano.
+
+Serviço `active`/`enabled`, restrito a AF_UNIX; nenhum listener TCP do leitor/mpv.
+
+Medições de síntese CPU, estratégia, limites de cache e riscos de buffer:
+[LATENCY.md](LATENCY.md). Início medido por IPC não equivale à primeira amostra
+audível. A janela persistente conserva o visual existente; `frontend-design`
+e `ui-ux-pro-max` orientaram foco, reversão de animações e acessibilidade.
+Nenhuma skill/ferramenta Orca foi usada. Novo login e uso dentro de Obsidian/Zed
+não foram automatizados; a próxima aprovação E2E permanece pendente.

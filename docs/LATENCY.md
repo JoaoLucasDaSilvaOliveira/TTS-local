@@ -63,6 +63,8 @@ reutilização, e não de uma redução radical da inferência CPU.
 `first_playback_seconds` termina quando os comandos mpv foram respondidos;
 não mede diretamente a primeira amostra audível no PipeWire. O cache evita
 inferência repetida, mas ainda há escrita do WAV e abertura pelo mpv. A
+conclusão usa EOF do mpv, não a drenagem física do buffer de saída; uma sessão
+curta pode terminar no serviço com amostras ainda enfileiradas no PipeWire. A
 continuidade ainda depende de o produtor alcançar a velocidade de leitura;
 uma primeira frase muito curta ou velocidade alta pode esgotar o buffer.
 A redução da espera inicial é deliberada, e não promete áudio instantâneo

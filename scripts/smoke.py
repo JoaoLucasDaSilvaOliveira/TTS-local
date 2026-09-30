@@ -54,11 +54,20 @@ def main():
         send({"command": "read", "text": "Ação e coração: revisão de ciência. Em 2026, são 25 minutos e R$ 12,50. CPU, INSS e TTS. Veja https://example.com/estudo.\n\nSegundo parágrafo: pausa, retomada, anterior e próximo."})
         status = wait(lambda s: s["state"] == "playing")
         report["initial_metrics"] = status["metrics"]
-        report["audio_output"] = mpv("get_property", "current-ao")
         send({"command": "pause"})
         send({"command": "pause"})
         assert mpv("get_property", "pause") is True
         pos1 = mpv("get_property", "time-pos")
+        # loadfile acknowledges before mpv finishes opening the new WAV.
+        # Faster startup exposes that normal asynchronous interval.
+        for _ in range(100):
+            if pos1 is not None:
+                break
+            time.sleep(0.02)
+            pos1 = mpv("get_property", "time-pos")
+        assert pos1 is not None, "mpv did not open the initial WAV"
+        report["audio_output"] = mpv("get_property", "current-ao")
+        assert report["audio_output"] in ("pipewire", "pulse", "alsa")
         time.sleep(0.35)
         pos2 = mpv("get_property", "time-pos")
         assert abs(pos2 - pos1) < 0.1
@@ -81,6 +90,12 @@ def main():
             time.sleep(0.1)
         assert path.endswith("00000.wav")
         report["checks"].append("next/previous load correct WAV while paused")
+        for _ in range(100):
+            if mpv("get_property", "seekable") and mpv("get_property", "time-pos") is not None:
+                break
+            time.sleep(0.02)
+        else:
+            raise RuntimeError("mpv did not finish opening the WAV after navigation")
         send({"command": "seek-forward"})
         time.sleep(0.2)
         assert mpv("get_property", "pause") is True
@@ -109,11 +124,13 @@ def main():
         status = wait(lambda s: s["state"] == "idle")
         report["continuous_metrics"] = status["metrics"]
         repeated = "Este é um trecho.\nEste é outro trecho."
+        report["repeat_metrics"] = []
         for _ in range(2):
             result = send({"command": "read", "text": repeated})
             assert result["segment_count"] == 2
             wait(lambda s: s["state"] == "playing")
-            wait(lambda s: s["state"] == "idle")
+            completed = wait(lambda s: s["state"] == "idle")
+            report["repeat_metrics"].append(completed["metrics"])
         report["checks"].append("same text replays after EOF; single newline creates two segments")
         send({"command": "read", "text": "Texto para parar antes da conclusão."})
         send({"command": "stop"})
