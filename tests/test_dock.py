@@ -137,3 +137,50 @@ def test_kwin_install_is_scoped_and_preserves_existing_package(tmp_path, monkeyp
                         "--key", "kokoro-reader-dockEnabled", "true"]
     assert calls[1:] == [["/tools/qdbus6", "org.kde.KWin", "/KWin", "reconfigure"],
                          ["/tools/qdbus6", "org.kde.KWin", "/Scripting", "start"]]
+
+
+def test_kwin_script_places_and_resizes_without_window_shown_signal(panel):
+    # Exercise the actual helper using Qt's JS engine, matching the Plasma 6
+    # window shape observed at runtime: frameGeometryChanged, no windowShown.
+    from PySide6.QtQml import QJSEngine
+    engine = QJSEngine()
+    setup = engine.evaluate("""
+        function signal() {
+            return {connect: function(callback) { this.callback = callback; }};
+        }
+        var reader = {
+            desktopFileName: 'kokoro-reader', resourceClass: 'kokoro-reader',
+            caption: 'Kokoro Reader',
+            frameGeometry: {x: 0, y: 0, width: 302, height: 60},
+            frameGeometryChanged: signal()
+        };
+        var unrelated = {
+            desktopFileName: 'editor', caption: 'Kokoro Reader',
+            frameGeometry: {x: 7, y: 8, width: 800, height: 600},
+            frameGeometryChanged: signal()
+        };
+        var KWin = {MaximizeArea: 1};
+        var workspace = {
+            windowAdded: signal(), stackingOrder: [reader, unrelated],
+            clientArea: function(option, window) {
+                if (option !== KWin.MaximizeArea || window !== reader)
+                    throw new Error('unexpected positioning target');
+                return {x: 100, y: 42, width: 1920, height: 1020};
+            }
+        };
+    """)
+    assert not setup.isError(), setup.toString()
+    script = Path(__file__).resolve().parents[1] / "kwin/kokoro-reader-dock/contents/code/main.js"
+    result = engine.evaluate(script.read_text(), str(script))
+    assert not result.isError(), result.toString()
+    assert engine.evaluate("reader.frameGeometry.x === 909 && reader.frameGeometry.y === 54").toBool()
+    result = engine.evaluate("""
+        reader.frameGeometry.width = 480;
+        reader.frameGeometryChanged.callback();
+        workspace.windowAdded.callback(unrelated);
+        reader.frameGeometry.x === 820 && reader.frameGeometry.y === 54
+            && unrelated.frameGeometry.x === 7 && unrelated.frameGeometry.y === 8
+            && unrelated.frameGeometryChanged.callback === undefined;
+    """)
+    assert not result.isError(), result.toString()
+    assert result.toBool()

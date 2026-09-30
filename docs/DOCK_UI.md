@@ -35,7 +35,9 @@ Isso não inicia o Kokoro automaticamente.
 O script identifica o app `kokoro-reader` e o título `Kokoro Reader`, usa a área
 disponível por monitor (`KWin.MaximizeArea`) para respeitar o painel superior e
 mantém uma folga de 12 px. Ele reage a criação/exibição/mudança de tamanho do
-dock, inclusive expansão, sem ativar a janela. A opção `--without-kwin` ignora
+dock, inclusive expansão, sem ativar a janela. Usa `workspace.windowAdded` e
+`window.frameGeometryChanged`, sem depender de `windowShown`, que não está
+exposto no objeto de janela dessa sessão Plasma 6. A opção `--without-kwin` ignora
 essa integração. Para instalar manualmente:
 
 ```sh

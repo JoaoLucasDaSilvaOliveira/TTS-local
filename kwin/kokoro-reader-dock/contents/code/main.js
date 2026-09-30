@@ -23,7 +23,6 @@ function attach(window) {
         placing = false;
     }
     window.frameGeometryChanged.connect(place);
-    window.windowShown.connect(place);
     place();
 }
 
