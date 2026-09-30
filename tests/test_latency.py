@@ -1,9 +1,11 @@
 import asyncio
+import json
 
 import numpy as np
 import pytest
 
 from kokoro_reader.latency import AudioCache
+from kokoro_reader.player import Player
 from kokoro_reader.service import Reader, Session
 from kokoro_reader.settings import Preferences
 from kokoro_reader.text import clean_markdown, segment
@@ -68,6 +70,74 @@ async def test_next_audio_loads_in_same_tick_and_producer_wakes_reader(tmp_path,
     finally:
         await reader.stop()
         reader.executor.shutdown(wait=True)
+
+
+def ipc_player(tmp_path):
+    class Writer:
+        def write(self, data):
+            pass
+        async def drain(self):
+            pass
+
+    player = Player(tmp_path)
+    player.reader = asyncio.StreamReader()
+    player.writer = Writer()
+    return player
+
+
+def ipc_feed(player, *replies):
+    for reply in replies:
+        player.reader.feed_data((json.dumps(reply) + "\n").encode())
+
+
+@pytest.mark.parametrize("event_first", [True, False])
+async def test_loadfile_waits_for_ack_and_ready_event_in_either_order(tmp_path, event_first):
+    player = ipc_player(tmp_path)
+    task = asyncio.create_task(player.command("loadfile", "/local.wav", "replace"))
+    ack = {"request_id": 1, "error": "success", "data": "acknowledged"}
+    event = {"event": "file-loaded"}
+    ipc_feed(player, event if event_first else ack)
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert not task.done()
+    ipc_feed(player, {"event": "end-file", "reason": "eof"}, ack if event_first else event)
+    assert await task == "acknowledged"
+
+
+async def test_eof_command_cannot_overtake_pending_load(tmp_path):
+    player = ipc_player(tmp_path)
+    load = asyncio.create_task(player.command("loadfile", "/local.wav", "replace"))
+    ipc_feed(player, {"request_id": 1, "error": "success"})
+    await asyncio.sleep(0)
+    eof = asyncio.create_task(player.command("get_property", "eof-reached"))
+    await asyncio.sleep(0)
+    assert player.sequence == 1 and not eof.done()
+    ipc_feed(player, {"event": "file-loaded"}, {"request_id": 2, "error": "success", "data": False})
+    await load
+    assert await eof is False
+
+
+@pytest.mark.parametrize("reply", [
+    {"request_id": 1, "error": "command failed"},
+    {"event": "end-file", "reason": "error", "file_error": "loading failed"},
+])
+async def test_loadfile_propagates_ack_and_decode_errors(tmp_path, reply):
+    player = ipc_player(tmp_path)
+    ipc_feed(player, reply)
+    with pytest.raises(RuntimeError, match="mpv:"):
+        await player.command("loadfile", "/local.wav", "replace")
+
+
+async def test_loadfile_event_wait_is_bounded_and_disconnect_propagates(tmp_path, monkeypatch):
+    monkeypatch.setattr("kokoro_reader.player.IPC_TIMEOUT", 0.01)
+    player = ipc_player(tmp_path)
+    ipc_feed(player, {"request_id": 1, "error": "success"})
+    with pytest.raises(TimeoutError):
+        await player.command("loadfile", "/local.wav", "replace")
+    player = ipc_player(tmp_path)
+    player.reader.feed_eof()
+    with pytest.raises(RuntimeError, match="mpv desconectou"):
+        await player.command("loadfile", "/local.wav", "replace")
 
 
 @pytest.mark.parametrize("error", ["mpv: property unavailable", "mpv desconectou", "mpv: command failed"])
