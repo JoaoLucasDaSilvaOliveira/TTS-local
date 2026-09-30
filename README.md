@@ -60,7 +60,7 @@ kokoro-reader-panel
 kokoro-readerctl panel
 ```
 
-O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada e pode ser desativada em **Reduzir movimento**. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
+O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
 
 Play/retomar, pausa e stop ficam somente no cabeçalho, acessíveis também quando a doca está expandida. O painel interno contém navegação, preferências e o botão para iniciar uma nova leitura, sem repetir os três controles do cabeçalho.
 

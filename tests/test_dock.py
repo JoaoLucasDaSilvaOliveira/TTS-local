@@ -89,6 +89,12 @@ def test_playback_controls_are_single_header_instances(panel):
         assert not panel.body.isAncestorOf(control)
 
 
+def test_reduce_motion_option_is_not_exposed(panel):
+    from PySide6.QtWidgets import QCheckBox
+    assert not hasattr(panel, "motion")
+    assert all(control.text() != "Reduzir movimento" for control in panel.findChildren(QCheckBox))
+
+
 def test_expansion_escape_and_interrupted_motion_preserve_cache(panel):
     panel.selection.update("Texto selecionado", "")
     panel.set_expanded(True)
@@ -138,7 +144,7 @@ def test_system_font_scaling_keeps_controls_scrollable(panel):
         QApplication.processEvents()
         assert scaled.body.minimumSizeHint().width() <= scaled.details.viewport().width()
         assert scaled.details.verticalScrollBar().maximum() > 0
-        for control in (scaled.read, scaled.voice, scaled.motion):
+        for control in (scaled.read, scaled.voice):
             assert control.font().pointSize() == 18
     finally:
         if scaled:

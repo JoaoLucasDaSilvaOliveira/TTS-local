@@ -156,11 +156,6 @@ class Panel(DockShell):
         self.top = QCheckBox("Manter janela por cima")
         self.top.setChecked(True)
         self.top.hide()  # compatibility attribute; KWin owns the dock's stacking
-        self.motion = QCheckBox("Reduzir movimento")
-        self.motion.setChecked(self.reduced_motion)
-        self.motion.setToolTip("Abre e recolhe imediatamente, sem animação.")
-        self.motion.toggled.connect(self.set_reduced_motion)
-        layout.addWidget(self.motion)
         self.start = QPushButton("Iniciar serviço")
         self.start.clicked.connect(lambda: self.submit("start-service"))
         self.start.hide()
