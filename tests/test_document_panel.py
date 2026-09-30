@@ -107,7 +107,7 @@ def test_file_failure_is_local_and_keeps_source(panel, tmp_path, monkeypatch):
     panel.files._error("PDF sem texto pesquisável. OCR não é realizado.")
     assert panel.files.document is document
     assert "PDF sem texto" in panel.state.text()
-    assert len(notices) == 1
+    assert notices == []
 
 
 def test_long_filename_does_not_widen_dock(panel, tmp_path):

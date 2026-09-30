@@ -51,7 +51,10 @@ def icon(name):
 
 
 class DockShell(QWidget):
-    """Compact controls stay nonactivating; expanded content accepts keyboard focus.
+    """One persistent native window, with keyboard controls when expanded.
+
+    Compact buttons do not request widget focus. Whether a pointer click activates
+    the window itself remains the compositor's decision (especially on Wayland).
 
     `body_layout` is the expanded surface. Panel exposes a smaller `input_layout`
     within it as the stable attachment point for optional text/file sources.
@@ -61,8 +64,12 @@ class DockShell(QWidget):
         super().__init__()
         self.setObjectName("dock")
         self.setWindowFlags(Qt.WindowType.Window | Qt.WindowType.FramelessWindowHint
-                            | Qt.WindowType.WindowStaysOnTopHint
-                            | Qt.WindowType.WindowDoesNotAcceptFocus)
+                            | Qt.WindowType.WindowStaysOnTopHint)
+        # All native flags/attributes are fixed before the first show. Toggling
+        # QWidget window flags later hides/recreates the platform window on Qt
+        # Wayland, which makes KWin run close/open effects on every expansion.
+        # Permanent WindowDoesNotAcceptFocus would also prevent expanded keyboard
+        # controls and dialogs, so use widget focus policies for compact mode.
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
@@ -94,6 +101,8 @@ class DockShell(QWidget):
         self.compact_stop = self.icon_button("stop", "Parar")
         for button in (self.compact_play, self.compact_pause, self.compact_stop):
             row.addWidget(button)
+        self.header_controls = (self.header, self.compact_play, self.compact_pause, self.compact_stop)
+        self._set_header_focus(False)
         header.setFixedHeight(max(42, self.header.sizeHint().height()))
         self.header_container = header
         self.root_layout.addWidget(header)
@@ -153,10 +162,9 @@ class DockShell(QWidget):
         self.expanded = expanded
         self.header.setText("Kokoro  ▴" if expanded else "Kokoro  ▾")
         self.header.setAccessibleName("Recolher controles" if expanded else "Expandir controles do Kokoro Reader")
-        # Only deliberate expansion makes the dock an interactive window. Media
-        # clicks in compact mode keep the external app's PRIMARY selection intact.
-        self.setWindowFlag(Qt.WindowType.WindowDoesNotAcceptFocus, not expanded)
-        self.show()
+        # Resize only: never change native flags, hide/show the top-level, or
+        # replace its QWindow. The details widget is an ordinary child surface.
+        self._set_header_focus(expanded)
         if expanded:
             self.details.show()
             self.details.setEnabled(True)
@@ -164,6 +172,9 @@ class DockShell(QWidget):
             self.activateWindow()
             self.header.setFocus(Qt.FocusReason.OtherFocusReason)
         else:
+            focused = self.focusWidget()
+            if focused is not None:
+                focused.clearFocus()
             self.details.setEnabled(False)
         target = self.target_size()
         if animate and not self.reduced_motion:
@@ -173,6 +184,11 @@ class DockShell(QWidget):
         else:
             self.resize(target)
             self._finish_transition()
+
+    def _set_header_focus(self, expanded):
+        policy = Qt.FocusPolicy.StrongFocus if expanded else Qt.FocusPolicy.NoFocus
+        for button in self.header_controls:
+            button.setFocusPolicy(policy)
 
     def _finish_transition(self):
         self.details.setVisible(self.expanded)

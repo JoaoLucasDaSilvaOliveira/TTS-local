@@ -1,0 +1,54 @@
+{
+  "device": "cpu",
+  "checks": [
+    "pause preserves mpv time-pos",
+    "next/previous load correct WAV while paused",
+    "seek +10/-10 seconds works and preserves pause",
+    "speed changes immediately, including 0.75 and 1.50",
+    "resume, automatic EOF progression and WAV cleanup",
+    "same text replays after EOF; single newline creates two segments",
+    "stop during synthesis cleans files",
+    "clipboard unchanged"
+  ],
+  "initial_metrics": {
+    "first_synthesis_seconds": 1.494,
+    "first_audio_seconds": 2.5,
+    "synthesis_total_seconds": 1.494,
+    "audio_total_seconds": 2.5,
+    "synthesized_segments": 1,
+    "first_playback_seconds": 1.525
+  },
+  "audio_output": "pipewire",
+  "continuous_metrics": {
+    "first_synthesis_seconds": 1.626,
+    "first_audio_seconds": 2.7,
+    "synthesis_total_seconds": 5.929,
+    "audio_total_seconds": 8.875,
+    "synthesized_segments": 3,
+    "first_playback_seconds": 1.653,
+    "transition_wait_seconds": 0.026,
+    "session_wall_seconds": 9.849
+  },
+  "repeat_metrics": [
+    {
+      "first_synthesis_seconds": 0.791,
+      "first_audio_seconds": 1.425,
+      "synthesis_total_seconds": 1.833,
+      "audio_total_seconds": 3.1,
+      "synthesized_segments": 2,
+      "first_playback_seconds": 0.808,
+      "transition_wait_seconds": 0.013,
+      "session_wall_seconds": 3.463
+    },
+    {
+      "first_synthesis_seconds": 0.0,
+      "first_audio_seconds": 1.425,
+      "synthesis_total_seconds": 0.0,
+      "audio_total_seconds": 3.1,
+      "synthesized_segments": 2,
+      "first_playback_seconds": 0.018,
+      "transition_wait_seconds": 0.016,
+      "session_wall_seconds": 2.679
+    }
+  ]
+}

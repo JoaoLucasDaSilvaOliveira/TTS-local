@@ -3,6 +3,8 @@ import asyncio
 import json
 import contextlib
 
+IPC_TIMEOUT = 3
+
 
 class Player:
     def __init__(self, root):
@@ -34,15 +36,27 @@ class Player:
             request = self.sequence
             self.writer.write((json.dumps({"command": args, "request_id": request}) + "\n").encode())
             await self.writer.drain()
-            while True:
-                line = await asyncio.wait_for(self.reader.readline(), 3)
-                if not line:
-                    raise RuntimeError("mpv desconectou")
-                reply = json.loads(line)
-                if reply.get("request_id") == request:
-                    if reply.get("error") != "success":
-                        raise RuntimeError(f"mpv: {reply.get('error')}")
-                    return reply.get("data")
+            loading = args[0] == "loadfile"
+            acknowledged, file_loaded, data = False, False, None
+            # A loadfile ACK does not mean the new decoder is ready: EOF may
+            # still describe the previous file. Hold the command lock until
+            # both ACK and file-loaded arrive, in either event ordering.
+            async with asyncio.timeout(IPC_TIMEOUT):
+                while True:
+                    line = await self.reader.readline()
+                    if not line:
+                        raise RuntimeError("mpv desconectou")
+                    reply = json.loads(line)
+                    if reply.get("request_id") == request:
+                        if reply.get("error") != "success":
+                            raise RuntimeError(f"mpv: {reply.get('error')}")
+                        acknowledged, data = True, reply.get("data")
+                    elif loading and reply.get("event") == "file-loaded":
+                        file_loaded = True
+                    elif loading and reply.get("event") == "end-file" and reply.get("reason") == "error":
+                        raise RuntimeError(f"mpv: file load failed: {reply.get('file_error', 'error')}")
+                    if acknowledged and (not loading or file_loaded):
+                        return data
 
     async def close(self):
         if hasattr(self, "writer"):

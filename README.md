@@ -60,11 +60,11 @@ kokoro-reader-panel
 kokoro-readerctl panel
 ```
 
-O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada. Os controles compactos não tomam o foco do editor. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa.
+O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada, redimensionando a mesma janela nativa sem fechar/reabrir. Os botões compactos não pedem foco de widget, mas o KWin pode ativar a janela ao clicar. Se necessário, copie a seleção antes do clique; o app também mantém seu cache de seleção. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa. Detalhes em [docs/STABLE_DOCK.md](docs/STABLE_DOCK.md).
 
 Play/retomar, pausa e stop ficam somente no cabeçalho, acessíveis também quando a doca está expandida. O painel interno contém navegação, preferências e o botão para iniciar uma nova leitura, sem repetir os três controles do cabeçalho.
 
-Expandida, a doca oferece **Ler seleção / clipboard**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
+Expandida, a doca oferece **Iniciar leitura**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
 
 No KDE Plasma 6/Wayland, o instalador registra um script próprio do KWin que posiciona somente o Kokoro Reader e respeita a área disponível após os painéis do KDE. Não modifica monitores ou regras de outras janelas. `--without-kwin` pula essa integração; sem ela, Wayland não garante a posição pedida pelo Qt. Detalhes, acessibilidade e desativação em [docs/DOCK_UI.md](docs/DOCK_UI.md).
 
@@ -72,7 +72,7 @@ Ao fechar a janela, o painel fica na bandeja do KDE quando ela estiver disponív
 
 O app mostra uma prévia da seleção/clipboard de até 180 caracteres, com indicação da origem. O texto completo fica somente em memória e é enviado pelo botão Ler; truncar a prévia não encurta a leitura. Depois de concluir, você pode ler novamente a mesma prévia. A prévia é atualizada automaticamente; seleções pertencentes a controles do próprio app não substituem um texto externo já capturado. Velocidade usa botões −/+ e um rótulo sem seleção de texto para evitar interferência na seleção primária.
 
-O app também mostra o estado do serviço e uma prévia curta do trecho atual. Se o serviço estiver indisponível, pode iniciá-lo pelo botão **Iniciar serviço**; aguarde a carga do modelo. O progresso é por trechos, não por palavras. Avanço/recuo de 10 s respeita os limites do WAV atual; use Próximo/Anterior para navegar entre trechos. Erros transitórios de conexão são exibidos com mensagem compreensível e reconexão automática; notificações iguais de ações manuais têm intervalo mínimo de 30 segundos. Consultas automáticas não geram notificações de conexão.
+O app também mostra o estado do serviço e uma prévia curta do trecho atual. Se o serviço estiver indisponível, pode iniciá-lo pelo botão **Iniciar serviço**; aguarde a carga do modelo. O progresso é por trechos, não por palavras. Avanço/recuo de 10 s respeita os limites do WAV atual; use Próximo/Anterior para navegar entre trechos. Erros transitórios de conexão são exibidos na doca com mensagem compreensível e reconexão automática. O leitor não envia notificações do desktop, nem para início de leitura, texto vazio ou erros. Erros do cliente de terminal continuam em stderr; erros do serviço ficam no journal.
 
 O botão de leitura consulta a seleção primária Wayland e, quando vazia, o clipboard. Se o aplicativo perder a seleção ao focar o painel, copie com Ctrl+C antes de clicar em Ler. A interface não escreve no clipboard. Os atalhos globais abaixo também continuam funcionando.
 
@@ -129,7 +129,7 @@ Velocidade varia entre 0,75x e 1,50x; subir/descer soma/subtrai 0,10x e satura n
 
 Remove frontmatter YAML inicial, comentários, imagens Markdown, marcadores, destinos de links e blocos de código com mais de duas linhas ou 120 caracteres. Mantém código curto, rótulos de links, nomes/aliases de wikilinks e texto com acentos/números. URLs soltas viram nomes de domínio. É um filtro conservador, não um parser completo de Markdown; tabelas, LaTeX e estruturas aninhadas podem ser lidas literalmente.
 
-Cada quebra de linha gera um limite de trecho, mesmo sem uma linha em branco. Dentro da mesma linha, frases curtas são agrupadas, buscando ao menos 100 caracteres quando couberem, sem ultrapassar 220. Decimais, algumas abreviações e siglas com pontos são preservados. O motor verifica o limite real de fonemas e subdivide antes de ultrapassá-lo, evitando truncamento silencioso em português. O tamanho máximo de uma leitura é 60 mil caracteres.
+Quebras simples de linha viram espaços; linhas em branco separam parágrafos. A pontuação determina as frases: a primeira fica separada para começar rapidamente, e as seguintes são agrupadas buscando ao menos 100 caracteres quando couberem, sem ultrapassar 220. Frases longas são divididas preferencialmente em vírgulas/ponto e vírgula próximos do limite, depois entre palavras. Decimais, algumas abreviações e siglas com pontos são preservados. Não há uma pausa adicional programada entre trechos; a prosódia do Kokoro e o carregamento/buffer de áudio ainda podem produzir pausas perceptíveis. O motor verifica o limite real de fonemas e subdivide antes de ultrapassá-lo, evitando truncamento silencioso em português. O tamanho máximo de uma leitura é 60 mil caracteres.
 
 O modelo permanece carregado. Um executor único faz síntese em CPU com duas threads PyTorch (`KOKORO_THREADS` na unit permite ajuste), enquanto o laço assíncrono responde aos comandos. Até três trechos são sintetizados adiante; WAVs já ouvidos permanecem durante a leitura para permitir voltar. No início, após o primeiro WAV ficar pronto, espera até dois segundos adicionais pelo segundo WAV para reduzir interrupções. Leituras de um único trecho e navegação manual não têm essa espera adicional. A síntese continua com a mesma CPU e o mesmo modelo; esse ajuste não elimina limitações da voz. Não há promessa de transições sem qualquer intervalo: a troca de arquivo mpv e buffering podem introduzir pequenas pausas.
 
@@ -149,6 +149,8 @@ O comando gera a mesma frase nas três vozes, WAV 24 kHz e `metrics.json` com ca
 
 `status` e o journal registram primeira síntese, tempo até o comando de primeira reprodução e duração total da sessão. O tempo até reprodução mede envio aceito pelo mpv, não latência física até o alto-falante. Consulte [docs/VALIDATION.md](docs/VALIDATION.md) para medições feitas e testes pendentes.
 
+O leitor começa pela primeira frase completa, sem esperar artificialmente o segundo WAV. Áudio repetido com a mesma voz é reutilizado em RAM (até 32 MiB/64 entradas); texto novo continua exigindo inferência CPU. O modelo aquece antes de aceitar comandos no início do serviço. Estratégia, benchmark reproduzível e limites de continuidade em [docs/LATENCY.md](docs/LATENCY.md).
+
 ## Diagnóstico e inicialização no login
 
 ```bash
@@ -163,7 +165,7 @@ ss -ltnp
 
 Verifique no resultado de `ss -ltnp` que o PID do serviço e seu mpv não têm socket TCP em escuta. Outras aplicações podem ter listeners. A unit inicia com `graphical-session.target`; `is-enabled` confirma cadastro, mas confirmar um login real requer sair/entrar na sessão e repetir `is-active`/journal. Não é necessário habilitar linger: o leitor pertence à sessão gráfica. No início, `status` pode informar indisponível durante carga do modelo; consulte o journal.
 
-O cliente precisa rodar na sessão Wayland com `WAYLAND_DISPLAY` e `XDG_RUNTIME_DIR`. Se notificações não aparecerem, confira `DBUS_SESSION_BUS_ADDRESS` no ambiente da sessão. O serviço não lê o clipboard; isso é feito pelo cliente invocado pelo KDE. Para parar/desabilitar: `systemctl --user disable --now kokoro-reader.service`.
+O cliente precisa rodar na sessão Wayland com `WAYLAND_DISPLAY` e `XDG_RUNTIME_DIR`. O serviço não lê o clipboard; isso é feito pelo cliente invocado pelo KDE. Para parar/desabilitar: `systemctl --user disable --now kokoro-reader.service`.
 
 ## Integração futura
 

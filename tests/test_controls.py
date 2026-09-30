@@ -44,6 +44,18 @@ async def ready(reader):
     raise AssertionError("Producer não concluiu")
 
 
+@pytest.mark.parametrize("text,expected", [
+    ("Texto\nquebrado", ["Texto quebrado"]),
+    ("Texto.\nquebrado", ["Texto.", "quebrado"]),
+    ("Texto\n\nquebrado", ["Texto", "quebrado"]),
+])
+async def test_service_uses_punctuation_and_blank_lines_not_soft_wraps(reader, text, expected):
+    await reader.dispatch({"command": "read", "text": text})
+    await ready(reader)
+    assert reader.session.texts == expected
+    assert reader.status()["segment_count"] == len(expected)
+
+
 async def test_pause_navigation_and_eof(reader):
     await reader.dispatch({"command": "read", "text": "Primeiro.\n\nSegundo."})
     await ready(reader)
@@ -135,9 +147,8 @@ async def test_stop_during_synthesis_does_not_recreate_files(reader):
         release.set()
 
 
-async def test_initial_buffer_is_bounded_and_skipped_for_navigation(reader):
+async def test_first_audio_starts_without_waiting_for_second_segment(reader):
     from kokoro_reader.service import Session
-    import time
     # Simula apenas o primeiro WAV disponível, segundo ainda em síntese.
     s = Session(["Primeiro.", "Segundo."], reader.root / "audio-buffer-test", "pf_dora", {})
     s.directory.mkdir()
@@ -146,13 +157,9 @@ async def test_initial_buffer_is_bounded_and_skipped_for_navigation(reader):
     s.audio[0] = path
     reader.session = s
     await reader.tick()
-    assert s.loaded == -1 and reader.status()["state"] == "buffering"
-    s.buffer_deadline = time.perf_counter() - 1
-    await reader.tick()
     assert s.loaded == 0 and reader.status()["state"] == "playing"
     # Releitura simulada; comando previous ignora espera inicial adicional.
     s.first_playback = None
-    s.buffer_deadline = time.perf_counter() + 100
     await reader.dispatch({"command": "previous"})
     await reader.tick()
     assert s.loaded == s.revision

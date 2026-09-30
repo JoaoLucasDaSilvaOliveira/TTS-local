@@ -2,7 +2,6 @@
 import subprocess
 import sys
 import os
-import time
 
 from PySide6.QtCore import QLockFile, QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, Slot
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
@@ -69,8 +68,6 @@ class Panel(DockShell):
         self.connected = False
         self.quitting = False
         self.selection = SelectionCache()
-        self.last_error = None
-        self.last_notice = 0.0
         self.controls = []
         layout = self.body_layout
         self.compact_play.clicked.connect(self.compact_read_or_resume)
@@ -236,10 +233,6 @@ class Panel(DockShell):
                 message = "Conexão com o leitor interrompida. O app tentará reconectar automaticamente."
             if user_action:
                 self.state.setText(message)
-                now = time.monotonic()
-                if message != self.last_error or now - self.last_notice > 30:
-                    notify(message, error=True)
-                    self.last_error, self.last_notice = message, now
             else:
                 self.connected = False
                 self.state.setText("Serviço indisponível ou carregando. Aguarde ou clique em Iniciar serviço.")
@@ -319,7 +312,6 @@ class Panel(DockShell):
 
     def file_error(self, message):
         self.state.setText(message)
-        notify(message, error=True)
         self.refresh_input_size()
 
     def dragEnterEvent(self, event):
