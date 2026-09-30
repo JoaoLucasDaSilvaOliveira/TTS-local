@@ -1,182 +1,161 @@
+<img src="src/kokoro_reader/assets/kokoro.svg" alt="Logo: livro aberto com uma onda de voz" width="64" height="64">
+
 # Kokoro Reader
 
-Leitor TTS local para CachyOS/Arch, KDE Wayland, Obsidian e Zed. Usa Kokoro-82M em CPU, `KPipeline(lang_code="p")`, voz inicial `pf_dora` e mpv/PipeWire. Sem Docker, CUDA, servidor HTTP ou API de síntese. Os atalhos leem a seleção primária Wayland e usam o clipboard como alternativa; nenhum comando altera o clipboard.
+Leitor de texto em voz alta para estudos em português brasileiro, com síntese local em CPU e uma doca nativa para KDE Wayland.
+
+Selecione um texto no Obsidian, no Zed ou em outro aplicativo e acione um atalho para ouvir sem enviar o conteúdo a um serviço externo. Também aceita TXT, Markdown e PDFs pesquisáveis. O projeto integra inferência, processamento de documentos, comunicação entre processos e interface desktop em um fluxo offline.
+
+**Python 3.12 · Kokoro-82M · PyTorch CPU · Qt/PySide6 · asyncio · systemd · mpv/PipeWire**
+
+## Funcionalidades
+
+- Seleção primária Wayland com clipboard como alternativa, sem modificá-lo.
+- Doca compacta com play, pause e stop; expansão animada na mesma janela nativa, sem fechar/reabrir.
+- Navegação entre trechos, avanço/recuo de 10 segundos e velocidade de 0,75× a 1,50× com preservação de tom.
+- Importação por seletor ou arrastar/soltar de `.txt`, `.md` e PDFs com camada de texto.
+- Vozes brasileiras Dora (`pf_dora`), Alex (`pm_alex`) e Santa (`pm_santa`); voz e velocidade persistidas.
+- Prévia, identificação do arquivo e estado da leitura na doca, sem notificações do desktop.
+
+A integração com Obsidian e Zed usa seleção/clipboard e atalhos do sistema: não exige plugins ou extensões.
+
+## Arquitetura e decisões técnicas
+
+O modelo permanece carregado em um serviço separado da interface. Isso evita carregar pesos a cada ação e mantém a inferência fora do processo Qt.
+
+```text
+Seleção / clipboard / TXT / Markdown / PDF
+                    │
+              Cliente CLI ou doca Qt
+                    │ JSON via socket Unix privado
+              Serviço systemd --user
+                    │ Limpeza → segmentação → Kokoro em CPU
+                    │ Fila de WAVs locais
+              mpv via IPC Unix → PipeWire
+```
+
+- **IPC local:** sem HTTP ou listener TCP; socket de controle `0600`, diretório `0700` e validação do UID do cliente.
+- **Concorrência controlada:** laço assíncrono de comandos e executor dedicado à síntese, com produção adiantada limitada.
+- **Início mais rápido:** primeiro trecho de até 100 caracteres, priorizando pontuação; os seguintes mantêm até 220. Sem espera artificial pelo segundo WAV.
+- **Cache limitado:** reutilização por texto/voz em RAM, até 32 MiB e 64 entradas. Velocidade aplicada no mpv, sem ressíntese.
+- **Ciclo de vida explícito:** cancelamento, limpeza de áudio temporário e espera pelo evento `file-loaded` do mpv antes de consultar EOF.
+- **Reprodutibilidade:** dependências diretas fixadas, `uv.lock`, índice CPU do PyTorch e revisão fixa dos pesos oficiais.
+
+Quebras simples de linha viram espaços; linhas em branco preservam parágrafos. A limpeza de Markdown prioriza texto, reduz URLs a domínios e ignora metadados e blocos longos de código.
 
 ## Instalação
 
-Clone o repositório e entre na pasta:
+Ambiente alvo: **CachyOS/Arch Linux, KDE Plasma 6 e Wayland**, com PipeWire, `uv` e `wl-clipboard` disponíveis. Desenvolvido e medido em Intel Core i5-1235U usando CPU, sem CUDA ou Docker.
 
 ```bash
 git clone https://github.com/JoaoLucasDaSilvaOliveira/TTS-local.git
 cd TTS-local
-```
 
-Na pasta deste projeto:
-
-```bash
 sudo pacman -Syu --needed espeak-ng mpv
 uv python install 3.12
-uv sync --python 3.12 --locked
+uv sync --python 3.12 --locked --extra gui
 uv run --no-sync pytest
 uv run --no-sync python scripts/install.py
+
 cd ~/.local/share/kokoro-reader
 uv run --no-sync kokoro-reader download
 systemctl --user enable --now kokoro-reader.service
 ~/.local/bin/kokoro-readerctl status
+~/.local/bin/kokoro-reader-panel
 ```
 
-O instalador copia o projeto para `~/.local/share/kokoro-reader`, cria um ambiente Python isolado nessa pasta, os launchers em `~/.local/bin`, configuração em `~/.config/kokoro-reader` e a unit em `~/.config/systemd/user`. Arquivos conflitantes da instalação são preservados em `.before-install` (com sufixo de tempo quando já existe um backup). Não copia nem modifica outros projetos. Instalações existentes mantêm voz e velocidade. Depois de atualizar uma instalação, use `systemctl --user restart kokoro-reader.service` para carregar o código atualizado.
+Python, dependências e pesos exigem rede na instalação inicial. Depois disso, síntese e reprodução usam arquivos locais, com modo offline do Hugging Face habilitado e o serviço restrito a sockets `AF_UNIX`. Pesos ausentes geram erro local, sem download automático.
 
-Flags e ações:
+O instalador usa `~/.local/share/kokoro-reader` e `~/.config/kokoro-reader`, preserva preferências e cria backups de arquivos conflitantes. No KDE, instala um script KWin que posiciona apenas a janela do leitor no centro superior da área disponível. Habilitar o serviço não abre a doca automaticamente.
 
-- `pacman -S`: sincroniza/instala pacotes dos repositórios.
-- `-y`: atualiza as bases de dados dos repositórios.
-- `-u`: atualiza os pacotes instalados. Em Arch use a atualização completa `-Syu`, evitando atualização parcial.
-- `--needed`: evita reinstalar pacotes que já estão atualizados.
-- `sudo`: executa o gerenciador de pacotes com privilégios administrativos; pede sua senha.
-- `uv python install 3.12`: baixa um Python 3.12 gerenciado pelo uv.
-- `uv sync`: cria/sincroniza `.venv` com as dependências do projeto.
-- `--python 3.12`: seleciona Python 3.12 para esse ambiente, sem trocar o Python do sistema.
-- `--locked`: exige que `uv.lock` corresponda ao projeto; não atualiza versões silenciosamente.
-- `--extra gui`: inclui Qt/PySide6 para o painel gráfico. O instalador usa esse extra por padrão; `scripts/install.py --without-gui` instala somente serviço/cliente de terminal.
-- `uv run --no-sync`: executa no ambiente existente sem resolver/baixar dependências novamente.
-- `systemctl --user`: opera o gerenciador systemd do usuário, sem sudo.
-- `enable`: registra a unit para iniciar automaticamente na sessão gráfica do usuário.
-- `--now`: além de habilitar, inicia o serviço imediatamente.
+<details>
+<summary>Flags dos comandos de instalação</summary>
 
-O download explícito instala somente configuração, pesos e três vozes oficiais do repositório `hexgrad/Kokoro-82M`, na revisão fixa declarada em `engine.py`. Python/dependências e pesos exigem rede uma vez. Síntese, amostras e reprodução posteriores usam arquivos locais, com `HF_HUB_OFFLINE=1`/`TRANSFORMERS_OFFLINE=1`. A unit também restringe famílias de sockets a `AF_UNIX`. Um modelo ausente produz erro local, sem tentativa de baixar automaticamente.
-
-Dependências diretas têm versões exatas e todas as transitivas estão no `uv.lock`; a origem de torch é o índice oficial CPU do PyTorch. `espeak-ng`, mpv e PipeWire são dependências do sistema, administradas pelo pacman.
-
-## Uso e atalhos KDE
-
-### Doca de controle
-
-Abra **Kokoro Reader** pelo menu de aplicativos do KDE, ou execute:
-
-```bash
-kokoro-reader-panel
-# Alternativa:
-kokoro-readerctl panel
-```
-
-O app abre como uma doca compacta no centro superior da tela, por cima das janelas: logo, **Ler/Retomar**, **Pausar** e **Parar**. Clique no logo/nome para expandir; **Escape** recolhe. A expansão é animada, redimensionando a mesma janela nativa sem fechar/reabrir. Os botões compactos não pedem foco de widget, mas o KWin pode ativar a janela ao clicar. Se necessário, copie a seleção antes do clique; o app também mantém seu cache de seleção. A fonte respeita o KDE; controles expandidos têm rolagem quando a tela é baixa. Detalhes em [docs/STABLE_DOCK.md](docs/STABLE_DOCK.md).
-
-Play/retomar, pausa e stop ficam somente no cabeçalho, acessíveis também quando a doca está expandida. O painel interno contém navegação, preferências e o botão para iniciar uma nova leitura, sem repetir os três controles do cabeçalho.
-
-Expandida, a doca oferece **Iniciar leitura**, trecho **Anterior/Próximo**, recuo/avanço de **10 segundos dentro do trecho**, velocidade de 0,75x a 1,50x, voz Dora/Alex/Santa e progresso por trechos. A voz escolhida vale para a próxima leitura. No KDE a doca permanece por cima; para escondê-la, use a bandeja ou feche a interface. Mudanças de voz/velocidade continuam sendo salvas pelo serviço.
-
-No KDE Plasma 6/Wayland, o instalador registra um script próprio do KWin que posiciona somente o Kokoro Reader e respeita a área disponível após os painéis do KDE. Não modifica monitores ou regras de outras janelas. `--without-kwin` pula essa integração; sem ela, Wayland não garante a posição pedida pelo Qt. Detalhes, acessibilidade e desativação em [docs/DOCK_UI.md](docs/DOCK_UI.md).
-
-Ao fechar a janela, o painel fica na bandeja do KDE quando ela estiver disponível. Clique no ícone para reabrir, ou use o menu do ícone para controlar a fala. **Sair do painel** encerra apenas a interface; a leitura e o serviço continuam. Para encerrar a leitura, use **Parar**. Abrir novamente pelo menu reutiliza a janela existente. Se não houver bandeja, fechar a janela encerra o painel.
-
-O app mostra uma prévia da seleção/clipboard de até 180 caracteres, com indicação da origem. O texto completo fica somente em memória e é enviado pelo botão Ler; truncar a prévia não encurta a leitura. Depois de concluir, você pode ler novamente a mesma prévia. A prévia é atualizada automaticamente; seleções pertencentes a controles do próprio app não substituem um texto externo já capturado. Velocidade usa botões −/+ e um rótulo sem seleção de texto para evitar interferência na seleção primária.
-
-O app também mostra o estado do serviço e uma prévia curta do trecho atual. Se o serviço estiver indisponível, pode iniciá-lo pelo botão **Iniciar serviço**; aguarde a carga do modelo. O progresso é por trechos, não por palavras. Avanço/recuo de 10 s respeita os limites do WAV atual; use Próximo/Anterior para navegar entre trechos. Erros transitórios de conexão são exibidos na doca com mensagem compreensível e reconexão automática. O leitor não envia notificações do desktop, nem para início de leitura, texto vazio ou erros. Erros do cliente de terminal continuam em stderr; erros do serviço ficam no journal.
-
-O botão de leitura consulta a seleção primária Wayland e, quando vazia, o clipboard. Se o aplicativo perder a seleção ao focar o painel, copie com Ctrl+C antes de clicar em Ler. A interface não escreve no clipboard. Os atalhos globais abaixo também continuam funcionando.
-
-Qt é opcional e só é carregado pelo painel; ele não carrega pesos nem cria outro motor de síntese. A interface consulta o serviço por socket privado e não abre porta de rede. Para instalar manualmente esse extra: `uv sync --python 3.12 --locked --extra gui`. O instalador também registra a entrada do menu em `~/.local/share/applications/kokoro-reader.desktop`.
-
-### Leitura de arquivos
-
-Expanda a doca e clique em **Abrir arquivo…**, ou arraste um arquivo local sobre a doca (inclusive recolhida). São aceitos **TXT**, **Markdown** e **PDF pesquisável**. TXT/MD precisam estar em UTF-8; BOM é aceito. Abrir prepara a prévia sem reproduzir automaticamente: clique em **Ler arquivo** ou no play compacto para ouvir. Nome, extensão e ícone do tipo aparecem na doca expandida; nomes longos têm reticências e tooltip completo.
-
-**Remover arquivo** restaura seleção/clipboard. Enquanto houver arquivo carregado, o botão Ler usa esse arquivo, mesmo que a seleção mude. Os atalhos globais `kokoro-readerctl read` continuam lendo seleção/clipboard, sem depender do modo da doca. A extração acontece em uma thread separada e não altera o clipboard. Uma falha ao abrir outro arquivo mantém o anterior.
-
-```bash
-kokoro-readerctl read --file '/caminho/Meu estudo.md'
-kokoro-readerctl read --file '/caminho/apostila.pdf'
-```
-
-PDFs são extraídos offline com `pypdf` fixado no projeto, sem OCR. PDFs digitalizados sem camada de texto, protegidos, inválidos ou documentos acima dos limites são recusados com aviso. Colunas/tabelas podem ter ordem de extração diferente da visual. Limite de leitura: 60 mil caracteres, sem truncamento silencioso. Outros limites e detalhes em [docs/FILE_INPUT.md](docs/FILE_INPUT.md).
-
-### Atalhos globais
-
-Em Configurações do Sistema → Teclado → Atalhos, use **Adicionar novo → Comando ou script** (os nomes podem variar entre versões do Plasma). Crie uma entrada para cada comando abaixo e atribua o atalho correspondente. Use o caminho absoluto, por exemplo `/home/dev_jao/.local/bin/kokoro-readerctl read`, porque `~`/PATH podem não ser expandidos pelo cadastro do KDE.
-
-| Atalho | Comando após o caminho de `kokoro-readerctl` |
+| Opção | Significado |
 | --- | --- |
-| Meta+Alt+R | `read` |
-| Meta+Alt+Space | `toggle` |
-| Meta+Alt+Left | `previous` |
-| Meta+Alt+Right | `next` |
-| Meta+Alt+Up | `faster` |
-| Meta+Alt+Down | `slower` |
-| Opcional: Meta+Alt+S | `stop` |
+| `sudo` | Executa o pacman com privilégios administrativos. |
+| `pacman -S` | Instala/sincroniza pacotes dos repositórios. |
+| `-y` | Atualiza as bases de dados dos repositórios. |
+| `-u` | Atualiza os pacotes instalados; `-Syu` faz a atualização completa, evitando atualização parcial no Arch. |
+| `--needed` | Não reinstala pacotes que já estão atualizados. |
+| `uv python install 3.12` | Instala Python gerenciado pelo uv. |
+| `uv sync` | Cria/sincroniza o ambiente isolado `.venv`. |
+| `--python 3.12` | Seleciona Python 3.12 para o ambiente, sem substituir o Python do sistema. |
+| `--locked` | Exige um lockfile compatível, sem atualizar versões silenciosamente. |
+| `--extra gui` | Inclui Qt/PySide6 para a doca e seus testes. |
+| `uv run --no-sync` | Executa no ambiente existente sem sincronizar dependências novamente. |
+| `systemctl --user` | Opera o systemd do usuário, sem sudo. |
+| `enable` | Configura o serviço para iniciar com a sessão gráfica do usuário. |
+| `--now` | Além de habilitar, inicia o serviço imediatamente. |
 
-Selecione texto no Obsidian ou Zed e pressione Meta+Alt+R. Caso o aplicativo não publique seleção primária, copie com Ctrl+C e use o mesmo atalho. A seleção primária tem prioridade quando estiver preenchida — pode conter texto selecionado anteriormente em outro aplicativo. Para testar apenas texto explícito, use `read --text` ou `read --stdin`.
+</details>
 
-```bash
-~/.local/bin/kokoro-readerctl read --text 'Ação, números e ciência: uma revisão local.'
-~/.local/bin/kokoro-readerctl toggle
-~/.local/bin/kokoro-readerctl pause
-~/.local/bin/kokoro-readerctl play
-~/.local/bin/kokoro-readerctl next
-~/.local/bin/kokoro-readerctl previous
-~/.local/bin/kokoro-readerctl seek-forward
-~/.local/bin/kokoro-readerctl seek-backward
-~/.local/bin/kokoro-readerctl faster
-~/.local/bin/kokoro-readerctl slower
-~/.local/bin/kokoro-readerctl speed 0.75
-~/.local/bin/kokoro-readerctl voice pm_alex
-~/.local/bin/kokoro-readerctl stop
-```
+## Uso rápido
 
-Velocidade varia entre 0,75x e 1,50x; subir/descer soma/subtrai 0,10x e satura nos limites (o último passo pode ser menor). O mpv preserva o tom; mudanças têm efeito durante a reprodução. Voz e velocidade são salvas atomicamente em `preferences.json`. A mudança de voz vale para a próxima leitura, mantendo a voz da fila atual. `toggle` pausa/retoma inclusive durante buffering; anterior/próximo vai ao início do trecho, respeita pausa e limita-se à fila atual. Uma nova leitura substitui a anterior. Ao terminar, a fila e seus WAVs são removidos; anterior não revive uma leitura concluída.
-
-## Limpeza, fila e privacidade
-
-Remove frontmatter YAML inicial, comentários, imagens Markdown, marcadores, destinos de links e blocos de código com mais de duas linhas ou 120 caracteres. Mantém código curto, rótulos de links, nomes/aliases de wikilinks e texto com acentos/números. URLs soltas viram nomes de domínio. É um filtro conservador, não um parser completo de Markdown; tabelas, LaTeX e estruturas aninhadas podem ser lidas literalmente.
-
-Quebras simples de linha viram espaços; linhas em branco separam parágrafos. A pontuação determina as frases: a primeira fica separada para começar rapidamente, e as seguintes são agrupadas buscando ao menos 100 caracteres quando couberem, sem ultrapassar 220. Frases longas são divididas preferencialmente em vírgulas/ponto e vírgula próximos do limite, depois entre palavras. Decimais, algumas abreviações e siglas com pontos são preservados. Não há uma pausa adicional programada entre trechos; a prosódia do Kokoro e o carregamento/buffer de áudio ainda podem produzir pausas perceptíveis. O motor verifica o limite real de fonemas e subdivide antes de ultrapassá-lo, evitando truncamento silencioso em português. O tamanho máximo de uma leitura é 60 mil caracteres.
-
-O modelo permanece carregado. Um executor único faz síntese em CPU com duas threads PyTorch (`KOKORO_THREADS` na unit permite ajuste), enquanto o laço assíncrono responde aos comandos. Até três trechos são sintetizados adiante; WAVs já ouvidos permanecem durante a leitura para permitir voltar. No início, após o primeiro WAV ficar pronto, espera até dois segundos adicionais pelo segundo WAV para reduzir interrupções. Leituras de um único trecho e navegação manual não têm essa espera adicional. A síntese continua com a mesma CPU e o mesmo modelo; esse ajuste não elimina limitações da voz. Não há promessa de transições sem qualquer intervalo: a troca de arquivo mpv e buffering podem introduzir pequenas pausas.
-
-Sockets em `$XDG_RUNTIME_DIR/kokoro-reader`: `control.sock` (0600) e `mpv.sock`, dentro de diretório 0700. O serviço valida UID do cliente por `SO_PEERCRED`, usa lock exclusivo e não cria listener TCP. Áudio temporário fica em subdiretórios privados `audio-*`, é removido no fim/parada/troca e restos de encerramentos abruptos são limpos no próximo início. Não salva o texto nos logs; o endpoint local `status` retorna o trecho atual para o próprio usuário. Notificações locais sinalizam vazio, erro e início da reprodução.
-
-## Amostras e desempenho
+Abra **Kokoro Reader** no menu do KDE. Selecione ou copie texto e clique em play. Clique no nome/logo para expandir; `Escape` recolhe. Para arquivos, use **Abrir arquivo…** ou arraste um documento para a doca e escolha **Ler arquivo**.
 
 ```bash
-cd ~/.local/share/kokoro-reader
-uv run --no-sync kokoro-reader samples --output samples
-mpv samples/pf_dora.wav
-mpv samples/pm_alex.wav
-mpv samples/pm_santa.wav
+kokoro-readerctl read --text 'Ação, ciência e tecnologia: uma revisão local.'
+kokoro-readerctl read --file '/caminho/apostila.pdf'
+kokoro-readerctl pause
+kokoro-readerctl play
+kokoro-readerctl speed 1.25
+kokoro-readerctl stop
 ```
 
-O comando gera a mesma frase nas três vozes, WAV 24 kHz e `metrics.json` com carga do modelo, tempo de síntese, duração do áudio e fator de tempo real (síntese/duração, menor que 1 significa mais rápido que a fala). Arquivos de amostras são artefatos intencionais, não temporários; ficam até você removê-los. Os WAVs e a pasta `samples` não são versionados; gere-os com o comando acima. As medições da rodada inicial estão em [docs/voice-samples-results.json](docs/voice-samples-results.json).
+Em **Configurações do Sistema → Teclado → Atalhos**, adicione comandos/scripts e use o caminho absoluto do cliente, por exemplo `/home/SEU_USUARIO/.local/bin/kokoro-readerctl read`.
 
-`status` e o journal registram primeira síntese, tempo até o comando de primeira reprodução e duração total da sessão. O tempo até reprodução mede envio aceito pelo mpv, não latência física até o alto-falante. Consulte [docs/VALIDATION.md](docs/VALIDATION.md) para medições feitas e testes pendentes.
+| Atalho sugerido | Comando |
+| --- | --- |
+| `Meta+Alt+R` | `kokoro-readerctl read` |
+| `Meta+Alt+Space` | `kokoro-readerctl toggle` |
+| `Meta+Alt+Left` / `Right` | `kokoro-readerctl previous` / `next` |
+| `Meta+Alt+Up` / `Down` | `kokoro-readerctl faster` / `slower` |
+| `Meta+Alt+S` | `kokoro-readerctl stop` |
 
-O leitor começa pela primeira frase ou pelo primeiro trecho de até 100 caracteres, priorizando vírgula/ponto e vírgula na metade final desse limite e, na ausência, dividindo entre palavras. Os seguintes mantêm o limite de 220 caracteres. Não espera artificialmente o segundo WAV. Áudio repetido com a mesma voz é reutilizado em RAM (até 32 MiB/64 entradas); texto novo continua exigindo inferência CPU. O modelo aquece antes de aceitar comandos no início do serviço. Estratégia, benchmark reproduzível e limites de continuidade em [docs/LATENCY.md](docs/LATENCY.md).
+Se o editor não publicar seleção primária, copie com `Ctrl+C`. O compositor pode ativar a doca ao clicar; o cache de seleção e os atalhos globais ajudam a preservar o fluxo. Consulte o [manual](docs/USAGE.md) para todos os controles e detalhes operacionais.
 
-## Diagnóstico e inicialização no login
+## Testes e desempenho
+
+A suíte registrada contém **120 testes**, cobrindo limpeza e segmentação, seleção/clipboard, documentos, preferências, controles, cancelamento, cache e ciclo de vida da janela. Testes Qt usam backend offscreen; scripts opt-in verificam reprodução e a superfície nativa em Wayland. A validação foi executada localmente; não há badge de CI ou alegação de cobertura percentual.
 
 ```bash
-systemctl --user status kokoro-reader.service
-journalctl --user -u kokoro-reader.service -b --no-pager
-systemctl --user is-enabled kokoro-reader.service
-systemctl --user is-active kokoro-reader.service
-systemctl --user show-environment
-ss -lxnp
-ss -ltnp
+uv sync --python 3.12 --locked --extra gui
+uv run --no-sync pytest -q
+KOKORO_THREADS=2 uv run --no-sync python scripts/benchmark_latency.py --long-opening
 ```
 
-Verifique no resultado de `ss -ltnp` que o PID do serviço e seu mpv não têm socket TCP em escuta. Outras aplicações podem ter listeners. A unit inicia com `graphical-session.target`; `is-enabled` confirma cadastro, mas confirmar um login real requer sair/entrar na sessão e repetir `is-active`/journal. Não é necessário habilitar linger: o leitor pertence à sessão gráfica. No início, `status` pode informar indisponível durante carga do modelo; consulte o journal.
+Uma medição CPU com `pf_dora` comparou a estratégia anterior com o limite inicial menor:
 
-O cliente precisa rodar na sessão Wayland com `WAYLAND_DISPLAY` e `XDG_RUNTIME_DIR`. O serviço não lê o clipboard; isso é feito pelo cliente invocado pelo KDE. Para parar/desabilitar: `systemctl --user disable --now kokoro-reader.service`.
+| Estratégia | Caracteres no primeiro trecho | Tempo de síntese |
+| --- | ---: | ---: |
+| Primeiro trecho anterior | 196 | 8,17 s |
+| Primeiro trecho limitado, cortado na vírgula | 92 | 3,45 s |
 
-## Integração futura
+Redução de aproximadamente **58% no tempo da primeira síntese dessa amostra**, por gerar menos texto antes de começar. Não representa aceleração de 58% do modelo inteiro, benchmark estatístico ou latência até o alto-falante. Textos novos ainda exigem inferência; cache beneficia repetições. Método, resultados e limites: [latência](docs/LATENCY.md) e [validação](docs/VALIDATION.md).
 
-Protocolo JSON v1, uma requisição/uma resposta por conexão Unix: `{"protocol":1,"command":"read","text":"...","source":{"kind":"obsidian","note":"..."}}`. Comandos seguem os nomes do cliente; `voice`/`speed` aceitam `value`. Respostas contêm `ok`, estado, índice/quantidade, texto do trecho atual, origem, `session_id` e `segment_id`. Isso prepara consulta local de progresso por um futuro plugin Obsidian. Um highlight temporário por trecho poderá usar esses IDs e metadados; mapear posições no Markdown original e sincronizar palavras exige trabalho adicional. Nenhum plugin/extensão foi criado, e não há promessa de highlight no Zed.
+## Limites conhecidos
 
-## Desenvolvimento e versionamento
+- Pronúncia e pausas dependem da voz, do texto e da segmentação. Início instantâneo e transições sem lacunas não são garantidos.
+- PDFs precisam ter camada de texto: sem OCR; colunas e tabelas podem ter ordem de leitura diferente da visual. TXT/MD usam UTF-8. Limite de entrada: 60 mil caracteres.
+- Inferência PyTorch em execução não é interrompida imediatamente; uma nova leitura pode aguardar seu término.
+- Posicionamento da doca é específico do KWin/Plasma 6. Outros desktops não têm suporte equivalente validado.
+- Não há plugin Obsidian, extensão Zed ou highlight sincronizado. IDs de sessão/trecho e metadados de origem preparam uma futura integração local do Obsidian.
 
-A `main` registra a base funcional com os controles e os ajustes de fluidez. O código-fonte é desenvolvido no clone; a cópia em `~/.local/share/kokoro-reader` é a instalação de execução. Para novas funcionalidades, crie branches a partir da `main`, rode `uv run --no-sync pytest` e revise as mudanças antes de integrá-las. O teste real `scripts/smoke.py` é opcional e reproduz áudio.
+## Explore o projeto
 
-Para desenvolver e testar o painel, sincronize com `--extra gui`. Os testes da interface usam o backend Qt offscreen e são pulados quando o extra não estiver instalado. `scripts/check_panel.py --expanded --file /caminho/estudo.md` valida a interface contra o serviço real e salva uma captura da própria janela, sem controlar outro aplicativo.
+| Local | Responsabilidade |
+| --- | --- |
+| [src/kokoro_reader](src/kokoro_reader) | Motor, serviço, IPC, cliente, documentos e interface Qt. |
+| [tests](tests) | Testes automatizados e regressões. |
+| [scripts](scripts) | Instalador, benchmarks e verificações reais opt-in. |
+| [systemd](systemd) / [kwin](kwin) | Integração da sessão gráfica e posicionamento da doca. |
+| [Manual](docs/USAGE.md) | Instalação, atalhos, controles, diagnóstico e protocolo local. |
+| [Arquivos](docs/FILE_INPUT.md) | Formatos, limites e extração de documentos. |
+| [Janela persistente](docs/STABLE_DOCK.md) | Transições, foco e verificação da superfície Wayland. |
 
-O repositório inclui `uv.lock`, código, unit systemd, testes e relatórios de validação. Ambientes Python, pesos, áudio gerado, sockets e backups de instalação ficam fora do Git. Depois de atualizar o código e testar, reinstale com `scripts/install.py` e reinicie o serviço conforme descrito acima.
+O clone é o código de desenvolvimento; `~/.local/share/kokoro-reader` é a instalação em execução. Para atualizar, teste, rode novamente `scripts/install.py` e reinicie o serviço. O reinício encerra a leitura atual.
 
-Fontes oficiais: [Kokoro pipeline](https://github.com/hexgrad/kokoro/blob/main/kokoro/pipeline.py), [modelo/vozes Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), [mpv IPC](https://mpv.io/manual/stable/#json-ipc).
+## Créditos
+
+Síntese com [Kokoro](https://github.com/hexgrad/kokoro) e os pesos/vozes oficiais de [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M). Reprodução com [mpv](https://mpv.io/manual/stable/#json-ipc). Os pesos não são redistribuídos neste repositório; dependências e modelos mantêm suas próprias licenças. A marca e os ícones SVG do leitor são originais do projeto.

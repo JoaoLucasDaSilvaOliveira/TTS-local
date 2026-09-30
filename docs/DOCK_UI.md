@@ -5,11 +5,12 @@ parar. Clique no nome ou na marca para abrir os controles. Escape recolhe.
 O ícone na bandeja e uma segunda execução abrem o painel existente. A janela
 fica sempre por cima no KDE com o helper habilitado.
 
-O dock recolhido usa `WindowDoesNotAcceptFocus` e `WA_ShowWithoutActivating`:
-clicar nos controles de reprodução não ativa o painel nem toma a seleção do
-editor. Abrir os controles explicitamente permite foco de teclado; Tab percorre
-os botões e opções, Space/Enter os ativa. A prévia usa texto simples e preserva
-o cache da seleção/clipboard. As opções da bandeja continuam disponíveis.
+A janela mantém flags nativas fixas e `WA_ShowWithoutActivating`; os botões
+compactos usam `NoFocus`. O compositor ainda pode ativar a janela ao clicar,
+portanto não há garantia de preservar o foco ou seleção visual do editor.
+Expandir permite foco de teclado; Tab percorre os botões e opções, Space/Enter
+os ativa. A prévia preserva o cache de seleção/clipboard. A expansão redimensiona
+a mesma superfície nativa; veja [STABLE_DOCK.md](STABLE_DOCK.md).
 
 A superfície azul de leitura, a marca lavanda e os SVGs em
 `src/kokoro_reader/assets/` são originais deste projeto. O conceito compacto
