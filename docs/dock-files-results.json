@@ -1,0 +1,106 @@
+{
+  "date": "2026-09-30",
+  "automated_tests": 76,
+  "platform": "CachyOS KDE Plasma 6 Wayland",
+  "dock": {
+    "kwin_script_loaded": true,
+    "compact": {
+      "width": 302,
+      "height": 60,
+      "top_gap": 12,
+      "top_center": true,
+      "keep_above": true
+    },
+    "expanded": {
+      "width": 480,
+      "top_gap": 12,
+      "top_center": true,
+      "keep_above": true
+    },
+    "screens_checked": "1920x1080 and 1920x1034 available areas",
+    "scope": "Own application geometry only; no external editor GUI automation"
+  },
+  "documents": {
+    "ok": true,
+    "documents": [
+      {
+        "extension": ".txt",
+        "segments": 2,
+        "seconds_until_playing": 3.724,
+        "metrics": {
+          "first_synthesis_seconds": 1.994,
+          "first_audio_seconds": 3.375,
+          "synthesis_total_seconds": 3.486,
+          "audio_total_seconds": 6.425,
+          "synthesized_segments": 2,
+          "first_playback_seconds": 3.563
+        }
+      },
+      {
+        "extension": ".md",
+        "segments": 2,
+        "seconds_until_playing": 2.285,
+        "metrics": {
+          "first_synthesis_seconds": 0.477,
+          "first_audio_seconds": 0.9,
+          "synthesis_total_seconds": 2.134,
+          "audio_total_seconds": 4.4,
+          "synthesized_segments": 2,
+          "first_playback_seconds": 2.212
+        }
+      },
+      {
+        "extension": ".pdf",
+        "segments": 1,
+        "seconds_until_playing": 1.622,
+        "metrics": {
+          "first_synthesis_seconds": 1.494,
+          "first_audio_seconds": 3.05,
+          "synthesis_total_seconds": 1.494,
+          "audio_total_seconds": 3.05,
+          "synthesized_segments": 1,
+          "first_playback_seconds": 1.502
+        }
+      }
+    ]
+  },
+  "playback": {
+    "device": "cpu",
+    "checks": [
+      "pause preserves mpv time-pos",
+      "next/previous load correct WAV while paused",
+      "seek +10/-10 seconds works and preserves pause",
+      "speed changes immediately, including 0.75 and 1.50",
+      "resume, automatic EOF progression and WAV cleanup",
+      "same text replays after EOF; single newline creates two segments",
+      "stop during synthesis cleans files",
+      "clipboard unchanged"
+    ],
+    "initial_metrics": {
+      "first_synthesis_seconds": 4.623,
+      "first_audio_seconds": 9.325,
+      "synthesis_total_seconds": 6.308,
+      "audio_total_seconds": 13.05,
+      "synthesized_segments": 2,
+      "first_playback_seconds": 6.376
+    },
+    "audio_output": "pipewire",
+    "continuous_metrics": {
+      "first_synthesis_seconds": 2.111,
+      "first_audio_seconds": 4.95,
+      "synthesis_total_seconds": 3.578,
+      "audio_total_seconds": 8.45,
+      "synthesized_segments": 2,
+      "first_playback_seconds": 3.592,
+      "transition_wait_seconds": 0.084,
+      "session_wall_seconds": 11.672
+    }
+  },
+  "service": {
+    "active": true,
+    "enabled": true,
+    "address_families": "AF_UNIX",
+    "tcp_listener": false,
+    "new_login_not_tested": true
+  }
+}

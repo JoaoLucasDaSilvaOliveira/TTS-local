@@ -83,3 +83,51 @@ Em cada aplicativo, selecionar/copiar o texto abaixo e disparar o atalho cadastr
 - Conferir PID em `ss -ltnp`: nenhum listener TCP do leitor ou mpv.
 
 Não marque o checklist manual como aprovado com base apenas nos testes automatizados.
+
+## Doca e documentos — 30/09/2026
+
+As duas features foram desenvolvidas por agentes com escopos separados, em
+`feat/top-dock` e `feat/file-input`, ambas iniciadas em `7af97b4`. A integração
+foi revisada numa terceira branch antes do merge em `main`.
+
+**76 testes passaram** com o extra Qt: expansão/recolhimento interrompível,
+Escape, foco/nome acessível dos controles, movimento reduzido, fonte maior,
+rolagem, limites e falhas de arquivos, drag/drop local, carregamento em thread,
+releitura integral, prioridade do arquivo na doca e retorno ao clipboard.
+O script KWin também foi executado no Qt JavaScript com janelas simuladas.
+
+Na sessão KDE/Wayland real, `scripts/check_panel.py` conectou ao serviço e
+capturas compacta/expandida/com arquivo foram inspecionadas. Um script temporário
+de diagnóstico consultou **somente janelas do próprio leitor** no compositor:
+compacto 302×60 e expandido com largura 480, centro horizontal, 12 px abaixo da
+área disponível e `keepAbove=true`. Verificação em áreas disponíveis 1920×1080
+e 1920×1034. A integração não redefine monitores ou outras regras.
+
+Essa verificação encontrou três problemas que foram corrigidos antes de
+publicar: sinal `windowShown` inexistente, hint Qt de “por cima” ignorado pelo
+Wayland e ausência de recarga do script ao reinstalar. O KWin agora define
+`keepAbove` apenas no leitor; o instalador descarrega e recarrega somente seu
+plugin. O diagnóstico temporário foi descarregado após a verificação.
+
+`scripts/check_documents.py` gerou fixtures públicas TXT/MD/PDF e confirmou
+metadados, síntese CPU, início de reprodução via mpv, pausa/retomada e remoção
+dos WAVs. Primeira síntese / início: TXT 1,994 / 3,563 s, MD 0,477 / 2,212 s,
+PDF 1,494 / 1,502 s. Estes tempos variam com texto e carga e medem comando aceito
+pelo mpv, não latência física ou qualidade percebida.
+
+O smoke geral foi repetido: navegação pausada, ±10 s, velocidade, EOF,
+releitura da mesma seleção, separação por newline e clipboard inalterado.
+Na leitura contínua: 3,578 s de síntese para 8,450 s de áudio, início em
+3,592 s, espera de transição 0,084 s. Resultados:
+[dock-files-results.json](dock-files-results.json).
+
+Serviço confirmado `active`/`enabled`, `RestrictAddressFamilies=AF_UNIX` e
+variáveis offline. `ss -ltnp` não mostrou listener do leitor ou do mpv.
+Não foi realizado novo login, nem automação de interface dentro de Obsidian
+ou Zed; o checklist humano acima continua pendente. Não há OCR ou avaliação
+humana da pronúncia nesta validação.
+
+As skills `frontend-design` e `ui-ux-pro-max` foram instaladas no ambiente do
+agente e influenciaram hierarquia, ícones originais, foco, contraste, fonte do
+sistema e movimento reduzido. A implementação permanece Qt nativa e offline;
+não incorpora frameworks web, serviços remotos ou assets protegidos do Coucou.
