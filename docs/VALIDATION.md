@@ -1,0 +1,66 @@
+# Validação
+
+Executado em 30/09/2026 no CachyOS, Intel Core i5-1235U (12 CPUs lógicas), CPU com duas threads PyTorch. Não foi usado CUDA. Os resultados abaixo distinguem verificações objetivas de testes ainda pendentes na interface.
+
+## Resultados executados
+
+- Base: 21 testes passaram antes da validação dos controles. Com os controles: **25 testes passaram**, incluindo limpeza, segmentação, seleção primária/fallback, validação de vozes, persistência, navegação pausada, progressão EOF, parada durante síntese e remoção de arquivos.
+- Instalação efetiva: `~/.local/share/kokoro-reader`, configuração em `~/.config/kokoro-reader`, launchers em `~/.local/bin`, pesos oficiais locais (~314 MiB). Python 3.12.14 e torch 2.6.0+cpu, `torch.version.cuda = None`.
+- Serviço: `active` e `enabled`; symlink em `graphical-session.target.wants`. `RestrictAddressFamilies=AF_UNIX` efetivo. O modelo carregou em 8,432 s na primeira inicialização medida.
+- Sockets privados: diretório 0700, `control.sock` e `mpv.sock` 0600. `ss -lxnp` mostrou somente Unix para leitor/mpv; `ss -ltnp` não mostrou listener TCP desses processos. Há listeners de outras aplicações da máquina.
+- Reprodução real: `current-ao = pipewire`. Pausa manteve `time-pos`, navegação carregou WAV correto e conservou pausa, retomada progrediu até EOF, velocidade 0,75/1,00/1,10/1,50 foi confirmada no mpv. Conclusão e parada limparam `audio-*`.
+- Persistência real: configurados `pm_alex` e 1,25x, serviço reiniciado; `status` confirmou os dois valores. Ao final, restaurados `pf_dora` e 1,00x.
+- Hash do clipboard permaneceu igual antes/depois do teste; o cliente implementa somente chamadas `wl-paste`.
+- Texto real enviado ao leitor inclui acentos, números, moeda, siglas e URL. A saída foi sintetizada/reproduzida; inteligibilidade exige audição humana.
+- O teste real pode ser repetido por `uv run --no-sync python scripts/smoke.py`; ele reproduz áudio, usa controles, restaura voz/velocidade e escreve [smoke-results.json](smoke-results.json).
+
+## Medições
+
+Primeira leitura medida no serviço: primeiro trecho sintetizado em **2,453 s**, áudio de 2,500 s, comando de reprodução aceito em **2,530 s**. Essa rodada coincidiu com outro processo gerando amostras, portanto não é uma medida isolada.
+
+Rodada posterior, serviço quente, sem geração simultânea de amostras: primeiro trecho em **1,355 s**, reprodução acionada em **1,372 s**. Teste contínuo independente, quatro trechos com `pf_dora`, velocidade 1,00: **4,949 s** de síntese total para **9,425 s** de áudio (RTF ≈ 0,525); primeira síntese **1,306 s**, primeiro comando de reprodução **1,331 s**, sessão total **10,201 s**. Esperas observadas nas três transições somaram **0,251 s**; incluem polling/troca de arquivo e não medem a latência física do dispositivo.
+
+Amostras iguais, arquivo [voice-samples-results.json](voice-samples-results.json), carga do modelo 4,657 s:
+
+| Voz | Síntese (s) | Áudio (s) | RTF |
+| --- | ---: | ---: | ---: |
+| pf_dora | 5,281 | 7,750 | 0,681 |
+| pm_alex | 4,916 | 7,900 | 0,622 |
+| pm_santa | 8,980 | 7,850 | 1,144 |
+
+Essa comparação também ocorreu com o serviço fazendo síntese; não é benchmark isolado nem garantia de tempo real. `pm_santa` foi mais lenta que a duração de fala nessa rodada. Energia, carga da máquina e comprimento do texto afetam o resultado.
+
+As três amostras são WAVs reais 24 kHz em `samples/` e foram reproduzidas em sequência pelo mpv com saída PipeWire; o processo concluiu com código zero. Isso confirma reprodução técnica, não avaliação humana da pronúncia. Pronúncia de números/siglas depende do eSpeak/Kokoro; houve um aviso de contagem de palavras do phonemizer em uma frase numérica, sem falha da síntese.
+
+## Pendências explícitas
+
+Cadastro e disparo dos atalhos no KDE; seleção/clipboard nos aplicativos Obsidian e Zed; audição humana de acentos/números/siglas nas três vozes; visualização das notificações; e logout/login real. Não executados nesta sessão. Não foi usado controle de interface do Orca após o usuário pedir que ele não fosse utilizado. O cadastro da unit comprova configuração para iniciar na sessão gráfica; não comprova um ciclo de login que ainda não aconteceu.
+
+## Ajuste de fluidez — 30/09/2026
+
+Após relato de voz robótica e pausas, frases curtas do mesmo parágrafo passaram a ser agrupadas, buscando 100 caracteres sem ultrapassar os 220 existentes. O início aguarda até dois segundos adicionais pelo segundo WAV depois que o primeiro estiver pronto. Não houve troca de modelo, dependências ou aumento de threads de CPU. Navegação manual permanece sem essa espera adicional; voltar/próximo navega por grupos de frases quando elas foram agrupadas.
+
+**27 testes passaram**, incluindo agrupamento sem perda de texto, respeito aos parágrafos e limite da espera inicial. O teste real de pausa/retomada, navegação pausada, velocidade, EOF, limpeza e clipboard passou novamente. Resultado: [smoke-grouped-results.json](smoke-grouped-results.json).
+
+Leitura contínua com duas unidades de áudio: 4,236 s de síntese para 8,450 s de áudio, início em 4,275 s e espera de transição de 0,083 s. A fraseologia é a da rodada anterior, agora com separação em dois parágrafos; a saída mudou com o agrupamento, portanto não é uma comparação controlada de duração/qualidade. A rodada anterior tinha 0,251 s somados de transições. A espera inicial aumentou: melhora da continuidade tem custo de latência de início. Isso não garante eliminar pausas em textos longos ou sob carga, e naturalidade exige audição humana.
+
+O [OpenJarvis indicado](https://github.com/open-jarvis/OpenJarvis) oferece múltiplos backends: [Kokoro local](https://github.com/open-jarvis/OpenJarvis/blob/main/src/openjarvis/speech/kokoro_tts.py), Cartesia e OpenAI TTS. Seu backend Kokoro usa por padrão `af_heart` (inglês americano). Sem saber qual voz/backend estava no exemplo ouvido, não se pode atribuir a diferença ao projeto em si. As limitações de trechos muito curtos são descritas nas [vozes oficiais do Kokoro](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
+
+## Checklist manual em Obsidian e Zed
+
+Em cada aplicativo, selecionar/copiar o texto abaixo e disparar o atalho cadastrado:
+
+> Ação e coração: revisão de ciência. Em 2026, são 25 minutos e R$ 12,50. CPU, INSS e TTS. Veja https://example.com/estudo. Primeiro parágrafo.
+
+> Segundo parágrafo: pausa, retomada, anterior e próximo. Acentos: á, ê, í, ó, ú e ç.
+
+- Seleção primária funciona; seleção vazia usa clipboard; conteúdo copiado permanece igual.
+- Pronúncia de acentos, números, siglas e domínio é inteligível nas três vozes.
+- Pause por alguns segundos e retome do mesmo ponto.
+- Próximo/anterior vão ao início do trecho e funcionam quando pausado.
+- Velocidade responde durante fala e fica limitada a 0,75–1,50.
+- Parar remove WAVs; leitura concluída remove WAVs; erro/vazio/início aparecem como notificação.
+- Reiniciar serviço preserva voz/velocidade; sair/entrar no KDE inicia o serviço.
+- Conferir PID em `ss -ltnp`: nenhum listener TCP do leitor ou mpv.
+
+Não marque o checklist manual como aprovado com base apenas nos testes automatizados.

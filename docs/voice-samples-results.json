@@ -1,0 +1,22 @@
+{
+  "text": "Olá! Esta é uma revisão de português brasileiro: ação, coração e ciência. Em 2026, estudamos 25 minutos.",
+  "device": "cpu",
+  "model_load_seconds": 4.657,
+  "voices": {
+    "pf_dora": {
+      "synthesis_seconds": 5.281,
+      "audio_seconds": 7.75,
+      "real_time_factor": 0.681
+    },
+    "pm_alex": {
+      "synthesis_seconds": 4.916,
+      "audio_seconds": 7.9,
+      "real_time_factor": 0.622
+    },
+    "pm_santa": {
+      "synthesis_seconds": 8.98,
+      "audio_seconds": 7.85,
+      "real_time_factor": 1.144
+    }
+  }
+}

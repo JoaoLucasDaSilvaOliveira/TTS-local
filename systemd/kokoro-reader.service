@@ -1,0 +1,22 @@
+[Unit]
+Description=Kokoro Reader local CPU TTS
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/share/kokoro-reader/.venv/bin/kokoro-reader serve
+WorkingDirectory=%h/.local/share/kokoro-reader
+Environment=HF_HUB_OFFLINE=1
+Environment=TRANSFORMERS_OFFLINE=1
+Environment=HF_HUB_DISABLE_TELEMETRY=1
+Environment=KOKORO_THREADS=2
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=yes
+RestrictAddressFamilies=AF_UNIX
+
+[Install]
+WantedBy=graphical-session.target
