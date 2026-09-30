@@ -101,7 +101,17 @@ class Reader:
             s = self.session
             if not s:
                 return
-            if s.loaded == s.revision and not s.paused and await self.player.command("get_property", "eof-reached"):
+            eof = False
+            if s.loaded == s.revision and not s.paused:
+                try:
+                    eof = await self.player.command("get_property", "eof-reached")
+                except RuntimeError as exc:
+                    # loadfile acknowledges before the decoder exposes properties.
+                    # Only this mpv property transient is retried on the next tick.
+                    if str(exc) != "mpv: property unavailable":
+                        raise
+                    return
+            if eof:
                 if s.index + 1 == len(s.texts):
                     self.metrics["session_wall_seconds"] = round(time.perf_counter() - s.started, 3)
                     LOG.info("session_complete %s", json.dumps(self.metrics))

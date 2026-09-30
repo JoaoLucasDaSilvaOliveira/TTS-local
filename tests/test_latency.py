@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from kokoro_reader.latency import AudioCache
-from kokoro_reader.service import Reader
+from kokoro_reader.service import Reader, Session
 from kokoro_reader.settings import Preferences
 from kokoro_reader.text import clean_markdown, segment
 
@@ -65,6 +65,49 @@ async def test_next_audio_loads_in_same_tick_and_producer_wakes_reader(tmp_path,
         assert reader.session.index == 1
         assert reader.session.loaded == reader.session.revision
         assert reader.player.commands[-3][0] == "loadfile"
+    finally:
+        await reader.stop()
+        reader.executor.shutdown(wait=True)
+
+
+@pytest.mark.parametrize("error", ["mpv: property unavailable", "mpv desconectou", "mpv: command failed"])
+async def test_eof_property_loading_transient_only_is_retried(tmp_path, monkeypatch, error):
+    class Player:
+        loaded = False
+        pending_error = None
+        eof = False
+
+        async def command(self, *args):
+            if args[0] == "loadfile":
+                self.loaded = True
+                self.pending_error = error
+            if args == ("get_property", "eof-reached"):
+                assert self.loaded
+                if self.pending_error is not None:
+                    pending, self.pending_error = self.pending_error, None
+                    raise RuntimeError(pending)
+                return self.eof
+
+    monkeypatch.setattr("kokoro_reader.service.notify", lambda *a, **kw: None)
+    reader = Reader(None, Player(), tmp_path, Preferences())
+    directory = tmp_path / "audio-transient"
+    directory.mkdir()
+    session = Session(["Primeiro."], directory, "pf_dora", {})
+    session.audio[0] = directory / "00000.wav"
+    reader.session = session
+    try:
+        await reader.tick()  # loadfile ACK; properties are not yet available.
+        if error != "mpv: property unavailable":
+            with pytest.raises(RuntimeError, match=error):
+                await reader.tick()
+            return
+        await reader.tick()  # The known transient must not kill the service.
+        assert reader.session is session and session.index == 0
+        await reader.tick()  # Decoder ready, EOF false.
+        assert reader.session is session
+        reader.player.eof = True
+        await reader.tick()
+        assert reader.session is None and not directory.exists()
     finally:
         await reader.stop()
         reader.executor.shutdown(wait=True)
