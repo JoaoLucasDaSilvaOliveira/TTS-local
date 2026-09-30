@@ -85,6 +85,22 @@ async def test_preferences_and_bounds(reader):
         await reader.dispatch({"command": "speed", "value": float("nan")})
 
 
+async def test_explicit_pause_play_and_seek(reader):
+    await reader.dispatch({"command": "read", "text": "Uma leitura."})
+    await ready(reader)
+    await reader.tick()
+    await reader.dispatch({"command": "pause"})
+    await reader.dispatch({"command": "pause"})
+    assert reader.session.paused
+    await reader.dispatch({"command": "seek-forward"})
+    assert ("seek", 10, "relative+exact") in reader.player.commands
+    await reader.dispatch({"command": "seek-backward"})
+    assert ("seek", -10, "relative+exact") in reader.player.commands
+    await reader.dispatch({"command": "play"})
+    await reader.dispatch({"command": "play"})
+    assert not reader.session.paused
+
+
 async def test_invalid_read_preserves_session(reader):
     await reader.dispatch({"command": "read", "text": "Texto original."})
     original = reader.session

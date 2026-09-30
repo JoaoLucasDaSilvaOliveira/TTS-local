@@ -46,6 +46,14 @@ Leitura contínua com duas unidades de áudio: 4,236 s de síntese para 8,450 s 
 
 O [OpenJarvis indicado](https://github.com/open-jarvis/OpenJarvis) oferece múltiplos backends: [Kokoro local](https://github.com/open-jarvis/OpenJarvis/blob/main/src/openjarvis/speech/kokoro_tts.py), Cartesia e OpenAI TTS. Seu backend Kokoro usa por padrão `af_heart` (inglês americano). Sem saber qual voz/backend estava no exemplo ouvido, não se pode atribuir a diferença ao projeto em si. As limitações de trechos muito curtos são descritas nas [vozes oficiais do Kokoro](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 
+## Painel de controle — branch feat/control-panel
+
+Painel Qt opcional com menu KDE, ícone de bandeja, leitura seleção/clipboard, pausar/retomar/parar, anterior/próximo, avanço/recuo 10 s no trecho, velocidade, voz e janela por cima. O painel usa somente o socket do serviço e um socket Unix próprio para reutilizar a janela quando aberto novamente. Não carrega modelo TTS. Qt/PySide6 é instalado pelo extra `gui` (download de aproximadamente 73,5 MiB nesta máquina); instalação somente de terminal continua possível.
+
+**32 testes passaram**, incluindo interface Qt offscreen, estados dos botões, comandos explícitos idempotentes, encaminhamento dos botões, preservação de preferências no polling e fila de ações quando há consulta de status em andamento. O painel foi aberto na sessão **Wayland real**, conectou ao serviço e a captura da própria janela foi inspecionada visualmente (`scripts/check_panel.py`). A entrada `.desktop` foi validada com `desktop-file-validate`.
+
+O teste de áudio real foi reexecutado com os novos comandos de serviço; resultados em [smoke-panel-service-results.json](smoke-panel-service-results.json). A validação automática da interface não substitui o teste humano de clique na bandeja do KDE ou seleção dentro de Obsidian/Zed.
+
 ## Checklist manual em Obsidian e Zed
 
 Em cada aplicativo, selecionar/copiar o texto abaixo e disparar o atalho cadastrado:

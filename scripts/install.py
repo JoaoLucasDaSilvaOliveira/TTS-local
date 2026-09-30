@@ -23,12 +23,13 @@ def install_file(source, target):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--skip-sync", action="store_true", help="somente copia; rode uv sync na instalação depois")
+    parser.add_argument("--without-gui", action="store_true", help="instala somente serviço e cliente de terminal")
     args = parser.parse_args()
     TARGET.mkdir(parents=True, exist_ok=True)
     if SOURCE != TARGET:
         for name in ("pyproject.toml", "uv.lock", "README.md"):
             install_file(SOURCE / name, TARGET / name)
-        for folder in ("src", "scripts", "systemd", "tests", "docs"):
+        for folder in ("src", "scripts", "systemd", "tests", "docs", "desktop"):
             for path in (SOURCE / folder).rglob("*"):
                 if path.is_file() and "__pycache__" not in path.parts:
                     install_file(path, TARGET / path.relative_to(SOURCE))
@@ -39,10 +40,13 @@ def main():
         preferences.write_text('{"voice": "pf_dora", "speed": 1.0}\n')
         preferences.chmod(0o600)
     if not args.skip_sync:
-        subprocess.run(["uv", "sync", "--python", "3.12", "--locked"], cwd=TARGET, check=True)
+        command = ["uv", "sync", "--python", "3.12", "--locked"]
+        if not args.without_gui:
+            command += ["--extra", "gui"]
+        subprocess.run(command, cwd=TARGET, check=True)
     binary = Path.home() / ".local/bin"
     binary.mkdir(parents=True, exist_ok=True)
-    for name in ("kokoro-reader", "kokoro-readerctl"):
+    for name in ("kokoro-reader", "kokoro-readerctl", "kokoro-reader-panel"):
         launcher = binary / name
         expected = f'#!/bin/sh\nexec "{TARGET}/.venv/bin/{name}" "$@"\n'
         if launcher.exists() and launcher.read_text() != expected:
@@ -50,6 +54,11 @@ def main():
         launcher.write_text(expected)
         launcher.chmod(0o755)
     install_file(TARGET / "systemd/kokoro-reader.service", Path.home() / ".config/systemd/user/kokoro-reader.service")
+    if not args.without_gui:
+        template = (TARGET / "desktop/kokoro-reader.desktop").read_text()
+        desktop = TARGET / "desktop/kokoro-reader-installed.desktop"
+        desktop.write_text(template.replace("@PANEL@", str(binary / "kokoro-reader-panel")))
+        install_file(desktop, Path.home() / ".local/share/applications/kokoro-reader.desktop")
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
     print(f"Instalado em {TARGET}. Baixe os pesos e habilite o serviço conforme README.")
 
