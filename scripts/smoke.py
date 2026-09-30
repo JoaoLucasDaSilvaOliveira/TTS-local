@@ -131,7 +131,7 @@ def main():
             wait(lambda s: s["state"] == "playing")
             completed = wait(lambda s: s["state"] == "idle")
             report["repeat_metrics"].append(completed["metrics"])
-        report["checks"].append("same text replays after EOF; single newline creates two segments")
+        report["checks"].append("same text replays after EOF; sentence punctuation preserves two segments")
         send({"command": "read", "text": "Texto para parar antes da conclusão."})
         send({"command": "stop"})
         assert not list(runtime_dir().glob("audio-*"))

@@ -9,7 +9,8 @@ pesos e três vozes locais. Nenhuma dependência foi adicionada.
   de até dois segundos pelo segundo trecho.
 - A primeira frase completa fica separada das seguintes. A regra normal de
   agrupamento de 100 caracteres continua nos demais trechos; o limite máximo
-  de 220 caracteres e as fronteiras de linha continuam iguais. Uma frase
+  de 220 caracteres continuam iguais. Quebras simples viram espaços e apenas
+  linhas em branco marcam parágrafos. Uma frase
   longa continua exigindo a síntese de seu trecho inteiro.
 - O produtor acorda o serviço quando um WAV fica pronto. O EOF é verificado
   a cada 20 ms, em vez de 80 ms, e o próximo WAV disponível é carregado na
@@ -77,6 +78,6 @@ resultado não recria WAVs da sessão cancelada.
 
 Os testes cobrem ausência de espera pelo segundo WAV, carregamento do próximo
 na mesma verificação, despertar do produtor, limites LRU/separação por voz,
-integridade das frases/linhas e cancelamento sem recriar arquivos. A aceitação
+integridade das frases/parágrafos e cancelamento sem recriar arquivos. A aceitação
 audível no desktop ainda precisa verificar velocidade, pausas, navegação e
 troca de leitura com os três perfis de voz. O protocolo Unix permanece igual.

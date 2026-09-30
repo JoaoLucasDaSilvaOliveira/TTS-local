@@ -11,11 +11,11 @@ from kokoro_reader.settings import Preferences
 from kokoro_reader.text import clean_markdown, segment
 
 
-def test_first_sentence_preserves_lines_and_following_grouping():
-    text = "Olá! Tudo bem? Vamos estudar.\nOutro parágrafo."
+def test_first_sentence_preserves_paragraphs_and_following_grouping():
+    text = "Olá! Tudo bem? Vamos estudar.\n\nOutro parágrafo."
     chunks = segment(clean_markdown(text), min_chars=100, first_min_chars=0)
     assert chunks == ["Olá!", "Tudo bem? Vamos estudar.", "Outro parágrafo."]
-    assert " ".join(chunks) == text.replace("\n", " ")
+    assert " ".join(chunks) == text.replace("\n\n", " ")
     assert segment("Dr. Silva tem 3.14 reais. Olá!", min_chars=100, first_min_chars=0) == [
         "Dr. Silva tem 3.14 reais.", "Olá!"]
     with pytest.raises(ValueError):
