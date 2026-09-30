@@ -39,7 +39,7 @@ def receive(panel, state):
                    "speed": 1.0, "voice": "pf_dora", "segment_text": "Texto."}, None, False)
 
 
-def test_compact_play_reads_or_resumes_without_accepting_window_focus(panel, monkeypatch):
+def test_compact_play_reads_or_resumes_without_requesting_widget_focus(panel, monkeypatch):
     commands = []
     monkeypatch.setattr(panel, "submit", lambda cmd, **kw: commands.append(cmd))
     assert not panel.expanded and not panel.details.isVisible()
@@ -49,7 +49,8 @@ def test_compact_play_reads_or_resumes_without_accepting_window_focus(panel, mon
         receive(panel, state)
         panel.compact_play.click()
         assert commands[-1] == command
-        assert panel.windowFlags() & Qt.WindowType.WindowDoesNotAcceptFocus
+        assert not panel.windowFlags() & Qt.WindowType.WindowDoesNotAcceptFocus
+        assert panel.compact_play.focusPolicy() == Qt.FocusPolicy.NoFocus
         assert panel.testAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
     receive(panel, "playing")
     assert not panel.compact_play.isEnabled()
@@ -139,6 +140,7 @@ def test_system_font_scaling_keeps_controls_scrollable(panel):
         app.setFont(large)
         scaled = Panel()
         scaled.timer.stop()
+        scaled.show()
         scaled.set_expanded(True, animate=False)
         scaled.resize(480, 320)  # low available height with enlarged desktop text
         QApplication.processEvents()
