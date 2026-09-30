@@ -14,6 +14,10 @@ pesos e três vozes locais. Nenhuma dependência foi adicionada.
 - O produtor acorda o serviço quando um WAV fica pronto. O EOF é verificado
   a cada 20 ms, em vez de 80 ms, e o próximo WAV disponível é carregado na
   mesma verificação. Antes era necessário esperar outra verificação.
+- `loadfile` só termina após a confirmação do comando e o evento `file-loaded`
+  do mpv, em qualquer ordem. Isso evita interpretar o EOF do arquivo anterior
+  como o fim do novo trecho. A espera total é limitada a três segundos;
+  erros do comando, abertura do áudio e desconexão continuam propagados.
 - Um aquecimento explícito é executado antes de abrir o socket de controle,
   usando a voz salva. Isso desloca a inicialização tardia para o início do
   serviço; não elimina o custo de inferência de texto novo.
