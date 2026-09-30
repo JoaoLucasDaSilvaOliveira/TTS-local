@@ -16,6 +16,7 @@ from .cli import send
 from .clipboard import read_selection, read_sources, SelectionCache, preview_text
 from .notify import notify
 from .settings import VOICES, runtime_dir
+from .dock import DockShell, icon as dock_icon
 
 
 class Result(QObject):
@@ -55,12 +56,10 @@ class Request(QRunnable):
             self.result.done.emit(local or None, exc, self.user_action)
 
 
-class Panel(QWidget):
+class Panel(DockShell):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Kokoro Reader")
-        self.setMinimumWidth(420)
-        self.resize(460, 350)
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(1)
         self.pending = None
@@ -72,25 +71,28 @@ class Panel(QWidget):
         self.last_error = None
         self.last_notice = 0.0
         self.controls = []
-        layout = QVBoxLayout(self)
-        layout.setSpacing(12)
-        title = QLabel("Kokoro Reader")
-        font = title.font()
-        font.setPointSize(font.pointSize() + 4)
-        font.setBold(True)
-        title.setFont(font)
-        layout.addWidget(title)
+        layout = self.body_layout
+        self.compact_play.clicked.connect(self.compact_read_or_resume)
+        self.compact_pause.clicked.connect(lambda: self.submit("pause"))
+        self.compact_stop.clicked.connect(lambda: self.submit("stop"))
         self.state = QLabel("Conectando ao leitor…")
         self.state.setWordWrap(True)
         layout.addWidget(self.state)
+        # Stable attachment point for optional FileControls, before preview/read.
+        self.input_layout = QVBoxLayout()
+        self.input_layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(self.input_layout)
         self.preview_title = QLabel("Prévia da seleção / clipboard")
+        self.preview_title.setObjectName("muted")
         layout.addWidget(self.preview_title)
         self.preview = QLabel("Selecione ou copie um texto para ver a prévia.")
         self.preview.setTextFormat(Qt.TextFormat.PlainText)
         self.preview.setWordWrap(True)
         self.preview.setMinimumHeight(45)
+        self.preview.setObjectName("preview")
         layout.addWidget(self.preview)
         self.read = self.button("Ler seleção / clipboard", "read", QStyle.StandardPixmap.SP_MediaPlay)
+        self.read.setObjectName("read")
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         layout.addWidget(self.read)
         row = QHBoxLayout()
@@ -100,6 +102,8 @@ class Panel(QWidget):
         self.stop = self.button("Parar", "stop", QStyle.StandardPixmap.SP_MediaStop)
         self.next = self.button("Próximo", "next", QStyle.StandardPixmap.SP_MediaSkipForward)
         for button in (self.previous, self.pause, self.play, self.stop, self.next):
+            button.setToolTip(button.text())
+            button.setText("")
             row.addWidget(button)
         layout.addLayout(row)
         row = QHBoxLayout()
@@ -126,25 +130,34 @@ class Panel(QWidget):
         row.addWidget(self.slower)
         row.addWidget(self.speed)
         row.addWidget(self.faster)
+        row.addStretch()
+        layout.addLayout(row)
+        row = QHBoxLayout()
         row.addWidget(QLabel("Voz"))
         self.voice = QComboBox()
         for label, voice in zip(("Dora", "Alex", "Santa"), VOICES):
             self.voice.addItem(label, voice)
         self.voice.setToolTip("A voz escolhida vale para a próxima leitura.")
+        self.voice.setAccessibleName("Voz para a próxima leitura")
         self.voice.activated.connect(lambda _: self.submit("voice", value=self.voice.currentData()))
         row.addWidget(self.voice)
+        row.addStretch()
         layout.addLayout(row)
         self.top = QCheckBox("Manter janela por cima")
+        self.top.setChecked(True)
         self.top.setToolTip("Mantém o app à frente das outras janelas, para acessar os controles enquanto estuda.")
         self.top.toggled.connect(self.keep_on_top)
         layout.addWidget(self.top)
+        self.motion = QCheckBox("Reduzir movimento")
+        self.motion.setChecked(self.reduced_motion)
+        self.motion.setToolTip("Abre e recolhe imediatamente, sem animação.")
+        self.motion.toggled.connect(self.set_reduced_motion)
+        layout.addWidget(self.motion)
         self.start = QPushButton("Iniciar serviço")
         self.start.clicked.connect(lambda: self.submit("start-service"))
         self.start.hide()
         layout.addWidget(self.start)
-        icon = QIcon.fromTheme("audio-speakers")
-        if icon.isNull():
-            icon = self.style().standardIcon(QStyle.StandardPixmap.SP_MediaVolume)
+        icon = dock_icon("kokoro")
         self.setWindowIcon(icon)
         self.tray = QSystemTrayIcon(icon, self)
         self.tray.setToolTip("Kokoro Reader")
@@ -171,10 +184,18 @@ class Panel(QWidget):
         QTimer.singleShot(0, self.poll)
 
     def button(self, title, command, icon):
-        button = QPushButton(self.style().standardIcon(icon), title)
+        media = {"pause": "pause", "play": "play", "stop": "stop", "previous": "previous",
+                 "next": "next", "seek-backward": "backward", "seek-forward": "forward"}
+        image = (dock_icon(media[command]) if command in media else QIcon() if command in ("slower", "faster")
+                 else self.style().standardIcon(icon))
+        button = QPushButton(image, title)
+        button.setAccessibleName(title)
         button.clicked.connect(lambda: self.submit(command))
         self.controls.append(button)
         return button
+
+    def compact_read_or_resume(self):
+        self.submit("play" if self.status.get("state") == "paused" else "read")
 
     def submit(self, command, **kwargs):
         if command == "read" and "text" not in kwargs and self.selection.text:
@@ -248,6 +269,13 @@ class Panel(QWidget):
         self.voice.setEnabled(self.connected and not busy)
         self.start.setVisible(not self.connected)
         self.start.setEnabled(not busy)
+        self.compact_play.setEnabled(self.connected and not busy and self.status.get("state") in ("idle", "paused"))
+        label = "Retomar" if self.status.get("state") == "paused" else "Ler seleção / clipboard"
+        self.compact_play.setToolTip(label)
+        self.compact_play.setAccessibleName(label)
+        self.compact_pause.setEnabled(self.pause.isEnabled())
+        self.compact_stop.setEnabled(self.stop.isEnabled())
+        self.header.setToolTip(f"{self.state.text()} • Abrir controles • Escape recolhe")
 
     def keep_on_top(self, checked):
         self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, checked)
@@ -256,6 +284,7 @@ class Panel(QWidget):
     def show_panel(self):
         self.showNormal()
         self.raise_()
+        self.set_expanded(True)
         self.activateWindow()
 
     def quit_panel(self):

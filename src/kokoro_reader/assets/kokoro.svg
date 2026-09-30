@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
+  <!-- Original Kokoro Reader mark: an open book whose pages become a voice wave. -->
+  <path d="M5 10c6-2 10 0 15 4 5-4 9-6 15-4v22c-6-2-10 0-15 3-5-3-9-5-15-3z" fill="#b7b0ff"/>
+  <path d="M20 15v16M10 19v5m5-7v10m10-10v10m5-8v5" fill="none" stroke="#202a3b" stroke-width="2.5" stroke-linecap="round"/>
+</svg>

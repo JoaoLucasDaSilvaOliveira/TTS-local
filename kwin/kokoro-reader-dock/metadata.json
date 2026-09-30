@@ -1,0 +1,12 @@
+{
+  "KPlugin": {
+    "Id": "kokoro-reader-dock",
+    "Name": "Kokoro Reader top dock",
+    "Description": "Place only Kokoro Reader below the top panel, centered on its screen.",
+    "Version": "1.0",
+    "License": "MIT"
+  },
+  "X-Plasma-API": "javascript",
+  "X-Plasma-MainScript": "code/main.js",
+  "KPackageStructure": "KWin/Script"
+}
