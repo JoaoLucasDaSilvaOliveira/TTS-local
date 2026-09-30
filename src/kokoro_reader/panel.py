@@ -2,17 +2,18 @@
 import subprocess
 import sys
 import os
+import time
 
 from PySide6.QtCore import QLockFile, QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, Slot
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel,
+    QApplication, QCheckBox, QComboBox, QHBoxLayout, QLabel,
     QMenu, QProgressBar, QPushButton, QStyle, QSystemTrayIcon, QVBoxLayout, QWidget,
 )
 
 from .cli import send
-from .clipboard import read_selection
+from .clipboard import read_selection, read_sources, SelectionCache, preview_text
 from .notify import notify
 from .settings import VOICES, runtime_dir
 
@@ -30,8 +31,14 @@ class Request(QRunnable):
 
     @Slot()
     def run(self):
+        local = {}
         try:
             request = dict(self.command)
+            if request["command"] == "status":
+                try:
+                    local["_selection"] = read_sources()
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
             if request["command"] == "read" and "text" not in request:
                 text = read_selection()
                 if not text.strip():
@@ -42,9 +49,10 @@ class Request(QRunnable):
                                capture_output=True)
                 request = {"command": "status"}
             response = send(request, timeout=3)
+            response.update(local)
             self.result.done.emit(response, None, self.user_action)
         except Exception as exc:
-            self.result.done.emit(None, str(exc), self.user_action)
+            self.result.done.emit(local or None, exc, self.user_action)
 
 
 class Panel(QWidget):
@@ -60,6 +68,9 @@ class Panel(QWidget):
         self.status = {}
         self.connected = False
         self.quitting = False
+        self.selection = SelectionCache()
+        self.last_error = None
+        self.last_notice = 0.0
         self.controls = []
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -72,6 +83,13 @@ class Panel(QWidget):
         self.state = QLabel("Conectando ao leitor…")
         self.state.setWordWrap(True)
         layout.addWidget(self.state)
+        self.preview_title = QLabel("Prévia da seleção / clipboard")
+        layout.addWidget(self.preview_title)
+        self.preview = QLabel("Selecione ou copie um texto para ver a prévia.")
+        self.preview.setTextFormat(Qt.TextFormat.PlainText)
+        self.preview.setWordWrap(True)
+        self.preview.setMinimumHeight(45)
+        layout.addWidget(self.preview)
         self.read = self.button("Ler seleção / clipboard", "read", QStyle.StandardPixmap.SP_MediaPlay)
         self.read.setToolTip("Selecione no Obsidian/Zed ou copie com Ctrl+C. O clipboard não é alterado.")
         layout.addWidget(self.read)
@@ -102,15 +120,12 @@ class Panel(QWidget):
         layout.addWidget(self.text)
         row = QHBoxLayout()
         row.addWidget(QLabel("Velocidade"))
-        self.speed = QDoubleSpinBox()
-        self.speed.setRange(0.75, 1.50)
-        self.speed.setSingleStep(0.10)
-        self.speed.setDecimals(2)
-        self.speed.setSuffix(" ×")
-        self.speed.setValue(1.0)
-        self.speed.setKeyboardTracking(False)
-        self.speed.valueChanged.connect(lambda value: self.submit("speed", value=value))
+        self.slower = self.button("−", "slower", QStyle.StandardPixmap.SP_MediaSeekBackward)
+        self.speed = QLabel("1,00 ×")
+        self.faster = self.button("+", "faster", QStyle.StandardPixmap.SP_MediaSeekForward)
+        row.addWidget(self.slower)
         row.addWidget(self.speed)
+        row.addWidget(self.faster)
         row.addWidget(QLabel("Voz"))
         self.voice = QComboBox()
         for label, voice in zip(("Dora", "Alex", "Santa"), VOICES):
@@ -120,6 +135,7 @@ class Panel(QWidget):
         row.addWidget(self.voice)
         layout.addLayout(row)
         self.top = QCheckBox("Manter janela por cima")
+        self.top.setToolTip("Mantém o app à frente das outras janelas, para acessar os controles enquanto estuda.")
         self.top.toggled.connect(self.keep_on_top)
         layout.addWidget(self.top)
         self.start = QPushButton("Iniciar serviço")
@@ -161,6 +177,8 @@ class Panel(QWidget):
         return button
 
     def submit(self, command, **kwargs):
+        if command == "read" and "text" not in kwargs and self.selection.text:
+            kwargs.update(text=self.selection.text, source={"kind": "wayland", "selection": self.selection.source})
         if self.pending is not None:
             if command != "status" and len(self.queued) < 16:
                 self.queued.append((command, kwargs))
@@ -177,10 +195,22 @@ class Panel(QWidget):
     @Slot(object, object, bool)
     def receive(self, response, error, user_action):
         self.pending = None
+        if response and "_selection" in response:
+            self.selection.update(*response.pop("_selection"), owns_primary=QApplication.clipboard().ownsSelection())
+            self.preview.setText(preview_text(self.selection.text) or "Selecione ou copie um texto para ver a prévia.")
+            source = "seleção" if self.selection.source == "primary" else "clipboard"
+            self.preview_title.setText(f"Prévia: {source} ({len(self.selection.text)} caracteres)" if self.selection.text else "Prévia da seleção / clipboard")
         if error:
+            message = str(error)
+            if isinstance(error, (ConnectionError, OSError, TimeoutError)):
+                self.connected = False
+                message = "Conexão com o leitor interrompida. O app tentará reconectar automaticamente."
             if user_action:
-                self.state.setText(error)
-                notify(error, error=True)
+                self.state.setText(message)
+                now = time.monotonic()
+                if message != self.last_error or now - self.last_notice > 30:
+                    notify(message, error=True)
+                    self.last_error, self.last_notice = message, now
             else:
                 self.connected = False
                 self.state.setText("Serviço indisponível ou carregando. Aguarde ou clique em Iniciar serviço.")
@@ -194,11 +224,8 @@ class Panel(QWidget):
             self.progress.setRange(0, max(count, 1))
             self.progress.setValue((response["segment_index"] or 0) + 1 if count else 0)
             self.progress.setFormat("Trecho %v de %m" if count else "Nenhuma leitura")
-            self.text.setText(response.get("segment_text") or "Selecione ou copie um texto para começar.")
-            if not self.speed.hasFocus():
-                self.speed.blockSignals(True)
-                self.speed.setValue(response["speed"])
-                self.speed.blockSignals(False)
+            self.text.setText(preview_text(response.get("segment_text") or "") or "Nenhuma leitura em andamento.")
+            self.speed.setText(f"{response['speed']:.2f} ×".replace(".", ","))
             self.voice.setCurrentIndex(self.voice.findData(response["voice"]))
             self.tray.setToolTip(f"Kokoro Reader — {self.state.text()}")
         self.update_controls()

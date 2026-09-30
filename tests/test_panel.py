@@ -45,7 +45,7 @@ def test_speed_poll_does_not_send_command(panel, monkeypatch):
     commands = []
     monkeypatch.setattr(panel, "submit", lambda command, **kw: commands.append((command, kw)))
     panel.receive(status(speed=1.25, voice="pm_alex"), None, False)
-    assert panel.speed.value() == 1.25 and panel.voice.currentData() == "pm_alex"
+    assert panel.speed.text() == "1,25 ×" and panel.voice.currentData() == "pm_alex"
     assert commands == []
 
 
@@ -69,3 +69,27 @@ def test_buttons_send_explicit_commands(panel, monkeypatch):
     panel.receive(status("paused"), None, False)
     panel.play.click()
     assert commands == ["pause", "seek-forward", "seek-backward", "next", "previous", "stop", "play"]
+
+
+def test_read_uses_preview_text_even_after_completion(panel, monkeypatch):
+    from kokoro_reader.panel import Request
+    captured = []
+    monkeypatch.setattr(panel.pool, "start", lambda task: captured.append(task.command))
+    panel.selection.update("Texto selecionado para repetir.", "")
+    panel.receive(status(), None, False)
+    panel.submit("read")
+    panel.receive(status(), None, False)  # EOF e retorno ao estado idle
+    panel.submit("read")
+    assert captured[0]["text"] == captured[1]["text"] == panel.selection.text
+    assert captured[1]["source"]["selection"] == "primary"
+
+
+def test_repeated_connection_error_notifications_are_limited(panel, monkeypatch):
+    notices = []
+    monkeypatch.setattr("kokoro_reader.panel.notify", lambda *args, **kw: notices.append(args))
+    error = ConnectionResetError(104, "Connection reset by peer")
+    panel.receive(None, error, True)
+    panel.receive(None, error, True)
+    panel.receive(None, error, False)
+    assert len(notices) == 1
+    assert "104" not in panel.state.text()

@@ -1,6 +1,7 @@
 """IPC mpv persistente; somente arquivos locais e socket Unix."""
 import asyncio
 import json
+import contextlib
 
 
 class Player:
@@ -46,7 +47,8 @@ class Player:
     async def close(self):
         if hasattr(self, "writer"):
             self.writer.close()
-            await self.writer.wait_closed()
+            with contextlib.suppress(ConnectionError, BrokenPipeError):
+                await self.writer.wait_closed()
         if hasattr(self, "process") and self.process.returncode is None:
             self.process.terminate()
             await self.process.wait()

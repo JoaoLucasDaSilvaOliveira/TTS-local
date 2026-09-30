@@ -21,7 +21,7 @@ def main():
         if not panel.connected:
             return
         assert panel.voice.currentData() == panel.status["voice"]
-        assert panel.speed.value() == panel.status["speed"]
+        assert panel.speed.text() == f"{panel.status['speed']:.2f} ×".replace(".", ",")
         assert panel.read.isEnabled()
         assert panel.grab().save(args.screenshot)
         print(f"connected state={panel.status['state']} platform={app.platformName()} screenshot={args.screenshot}")

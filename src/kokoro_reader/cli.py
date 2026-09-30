@@ -88,7 +88,8 @@ def main():
         message = str(exc)
         if isinstance(exc, (FileNotFoundError, ConnectionRefusedError)) and args.command not in ("serve", "download", "samples"):
             message = "Serviço indisponível ou carregando. Consulte: systemctl --user status kokoro-reader"
-        notify(message, error=True)
+        if args.command != "serve":
+            notify(message, error=True)
         print(f"Kokoro Reader: {message}", file=sys.stderr)
         sys.exit(1)
 

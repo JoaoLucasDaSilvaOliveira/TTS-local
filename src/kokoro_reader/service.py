@@ -231,9 +231,12 @@ async def serve():
             try:
                 writer.write((json.dumps(result, ensure_ascii=False) + "\n").encode())
                 await writer.drain()
+            except (ConnectionError, BrokenPipeError):
+                pass
             finally:
                 writer.close()
-                await writer.wait_closed()
+                with contextlib.suppress(ConnectionError, BrokenPipeError):
+                    await writer.wait_closed()
 
         path.unlink(missing_ok=True)
         server = await asyncio.start_unix_server(client, str(path), limit=400_000)

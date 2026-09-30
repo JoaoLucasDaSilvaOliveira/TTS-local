@@ -51,7 +51,7 @@ def segment(text, limit=220, min_chars=0):
     if not 0 <= min_chars <= limit:
         raise ValueError("Tamanho mínimo inválido")
     result = []
-    for paragraph in re.split(r"\n\s*\n", text):
+    for paragraph in re.split(r"\n+", text):
         paragraph_chunks = []
         paragraph = re.sub(r"\s+", " ", paragraph).strip()
         # Só encerra frase quando há espaço e próximo início; preserva Dr./etc.

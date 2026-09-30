@@ -108,6 +108,13 @@ def main():
         send({"command": "read", "text": "A leitura é local e usa apenas a CPU. Estudar com calma ajuda a compreender.\n\nMais um trecho para testar a fila. A revisão terminou."})
         status = wait(lambda s: s["state"] == "idle")
         report["continuous_metrics"] = status["metrics"]
+        repeated = "Este é um trecho.\nEste é outro trecho."
+        for _ in range(2):
+            result = send({"command": "read", "text": repeated})
+            assert result["segment_count"] == 2
+            wait(lambda s: s["state"] == "playing")
+            wait(lambda s: s["state"] == "idle")
+        report["checks"].append("same text replays after EOF; single newline creates two segments")
         send({"command": "read", "text": "Texto para parar antes da conclusão."})
         send({"command": "stop"})
         assert not list(runtime_dir().glob("audio-*"))
