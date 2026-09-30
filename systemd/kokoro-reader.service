@@ -15,6 +15,7 @@ UMask=0077
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
+KillMode=mixed
 NoNewPrivileges=yes
 RestrictAddressFamilies=AF_UNIX
 

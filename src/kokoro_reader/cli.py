@@ -14,9 +14,9 @@ from .settings import VOICES, runtime_dir
 SAMPLE_TEXT = "Olá! Esta é uma revisão de português brasileiro: ação, coração e ciência. Em 2026, estudamos 25 minutos."
 
 
-def send(request):
+def send(request, timeout=10):
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
-        client.settimeout(10)
+        client.settimeout(timeout)
         client.connect(str(runtime_dir() / "control.sock"))
         client.sendall((json.dumps({"protocol": 1, **request}, ensure_ascii=False) + "\n").encode())
         with client.makefile("r", encoding="utf-8") as stream:
@@ -50,7 +50,7 @@ def main():
     group = read.add_mutually_exclusive_group()
     group.add_argument("--text", help="texto explícito; não consulta clipboard")
     group.add_argument("--stdin", action="store_true", help="texto vindo de stdin")
-    for command in ("toggle", "stop", "previous", "next", "faster", "slower", "status", "serve", "download"):
+    for command in ("play", "pause", "toggle", "stop", "previous", "next", "seek-forward", "seek-backward", "faster", "slower", "status", "serve", "download", "panel"):
         commands.add_parser(command)
     commands.add_parser("voice").add_argument("value", choices=VOICES)
     commands.add_parser("speed").add_argument("value", type=float)
@@ -59,6 +59,10 @@ def main():
     sample.add_argument("--text", default=SAMPLE_TEXT)
     args = parser.parse_args()
     try:
+        if args.command == "panel":
+            from .panel import main as panel_main
+            panel_main()
+            return
         if args.command == "serve":
             from .service import serve
             logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -84,7 +88,8 @@ def main():
         message = str(exc)
         if isinstance(exc, (FileNotFoundError, ConnectionRefusedError)) and args.command not in ("serve", "download", "samples"):
             message = "Serviço indisponível ou carregando. Consulte: systemctl --user status kokoro-reader"
-        notify(message, error=True)
+        if args.command != "serve":
+            notify(message, error=True)
         print(f"Kokoro Reader: {message}", file=sys.stderr)
         sys.exit(1)
 

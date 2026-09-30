@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Kokoro Reader
+Comment=Leia textos localmente e controle a reprodução
+Exec="@PANEL@"
+Icon=audio-speakers
+Terminal=false
+Categories=AudioVideo;Audio;
+Keywords=TTS;leitura;voz;Kokoro;
+StartupNotify=false

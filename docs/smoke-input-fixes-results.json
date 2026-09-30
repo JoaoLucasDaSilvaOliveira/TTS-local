@@ -1,0 +1,32 @@
+{
+  "device": "cpu",
+  "checks": [
+    "pause preserves mpv time-pos",
+    "next/previous load correct WAV while paused",
+    "seek +10/-10 seconds works and preserves pause",
+    "speed changes immediately, including 0.75 and 1.50",
+    "resume, automatic EOF progression and WAV cleanup",
+    "same text replays after EOF; single newline creates two segments",
+    "stop during synthesis cleans files",
+    "clipboard unchanged"
+  ],
+  "initial_metrics": {
+    "first_synthesis_seconds": 5.13,
+    "first_audio_seconds": 9.325,
+    "synthesis_total_seconds": 7.065,
+    "audio_total_seconds": 13.05,
+    "synthesized_segments": 2,
+    "first_playback_seconds": 7.146
+  },
+  "audio_output": "pipewire",
+  "continuous_metrics": {
+    "first_synthesis_seconds": 2.708,
+    "first_audio_seconds": 4.95,
+    "synthesis_total_seconds": 4.621,
+    "audio_total_seconds": 8.45,
+    "synthesized_segments": 2,
+    "first_playback_seconds": 4.683,
+    "transition_wait_seconds": 0.084,
+    "session_wall_seconds": 12.761
+  }
+}

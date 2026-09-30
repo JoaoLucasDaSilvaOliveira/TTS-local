@@ -46,6 +46,25 @@ Leitura contínua com duas unidades de áudio: 4,236 s de síntese para 8,450 s 
 
 O [OpenJarvis indicado](https://github.com/open-jarvis/OpenJarvis) oferece múltiplos backends: [Kokoro local](https://github.com/open-jarvis/OpenJarvis/blob/main/src/openjarvis/speech/kokoro_tts.py), Cartesia e OpenAI TTS. Seu backend Kokoro usa por padrão `af_heart` (inglês americano). Sem saber qual voz/backend estava no exemplo ouvido, não se pode atribuir a diferença ao projeto em si. As limitações de trechos muito curtos são descritas nas [vozes oficiais do Kokoro](https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md).
 
+## Painel de controle — branch feat/control-panel
+
+Painel Qt opcional com menu KDE, ícone de bandeja, leitura seleção/clipboard, pausar/retomar/parar, anterior/próximo, avanço/recuo 10 s no trecho, velocidade, voz e janela por cima. O painel usa somente o socket do serviço e um socket Unix próprio para reutilizar a janela quando aberto novamente. Não carrega modelo TTS. Qt/PySide6 é instalado pelo extra `gui` (download de aproximadamente 73,5 MiB nesta máquina); instalação somente de terminal continua possível.
+
+**32 testes passaram**, incluindo interface Qt offscreen, estados dos botões, comandos explícitos idempotentes, encaminhamento dos botões, preservação de preferências no polling e fila de ações quando há consulta de status em andamento. O painel foi aberto na sessão **Wayland real**, conectou ao serviço e a captura da própria janela foi inspecionada visualmente (`scripts/check_panel.py`). A entrada `.desktop` foi validada com `desktop-file-validate`.
+
+O teste de áudio real foi reexecutado com os novos comandos de serviço; resultados em [smoke-panel-service-results.json](smoke-panel-service-results.json). A validação automática da interface não substitui o teste humano de clique na bandeja do KDE ou seleção dentro de Obsidian/Zed.
+
+## Correções de prévia, releitura e conexão
+
+- Prévia da seleção/clipboard limitada a 180 caracteres; texto completo preservado somente em memória. O botão Ler usa o texto da prévia, inclusive para repetir após EOF. A captura ignora seleção primária pertencente a controles do app quando já há um texto externo capturado. Os controles editáveis de velocidade foram substituídos por botões −/+ e rótulo sem seleção de texto, evitando que o app publique números como seleção primária.
+- Cada quebra de linha real separa trechos, mesmo sem linha em branco; frases curtas só são agrupadas dentro da mesma linha.
+- O journal mostrou `ConnectionResetError` no encerramento do IPC do mpv durante reinício do serviço. `KillMode=mixed` permite ao processo principal encerrar seu mpv; fechamento de streams tolera reset/pipe fechado. Clientes que desconectam durante resposta também são tratados sem traceback. Erros fatais do daemon vão para o journal, sem gerar uma notificação a cada reinício automático.
+- O app reconecta por consultas silenciosas de status; mensagens de conexão são compreensíveis e notificações repetidas de ações manuais são limitadas a uma por 30 segundos.
+- **38 testes passaram**, incluindo quebra de linha, cache/releitura do texto completo, proteção contra seleção interna `0`, fechamento do mpv com reset e limite de notificações.
+- App aberto e conferido na sessão Wayland com prévia truncada. Reinício do serviço confirmou `KillMode=mixed`, serviço ativo e encerramento sem traceback no journal. Teste real ampliado: [smoke-input-fixes-results.json](smoke-input-fixes-results.json).
+
+O comportamento nos aplicativos Obsidian/Zed depende de como cada aplicativo publica a seleção Wayland; a prévia permite verificar exatamente qual texto será enviado antes de clicar em Ler.
+
 ## Checklist manual em Obsidian e Zed
 
 Em cada aplicativo, selecionar/copiar o texto abaixo e disparar o atalho cadastrado:

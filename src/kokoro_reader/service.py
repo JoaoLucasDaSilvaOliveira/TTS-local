@@ -160,10 +160,13 @@ class Reader:
                 s.producer = asyncio.create_task(self.produce(s))
             elif cmd == "stop":
                 await self.stop()
-            elif cmd == "toggle":
+            elif cmd in ("play", "pause", "toggle"):
                 if self.session:
-                    self.session.paused = not self.session.paused
+                    self.session.paused = not self.session.paused if cmd == "toggle" else cmd == "pause"
                     await self.player.command("set_property", "pause", self.session.paused)
+            elif cmd in ("seek-forward", "seek-backward"):
+                if self.session and self.session.loaded == self.session.revision:
+                    await self.player.command("seek", 10 if cmd == "seek-forward" else -10, "relative+exact")
             elif cmd in ("previous", "next"):
                 if self.session:
                     s = self.session
@@ -228,9 +231,12 @@ async def serve():
             try:
                 writer.write((json.dumps(result, ensure_ascii=False) + "\n").encode())
                 await writer.drain()
+            except (ConnectionError, BrokenPipeError):
+                pass
             finally:
                 writer.close()
-                await writer.wait_closed()
+                with contextlib.suppress(ConnectionError, BrokenPipeError):
+                    await writer.wait_closed()
 
         path.unlink(missing_ok=True)
         server = await asyncio.start_unix_server(client, str(path), limit=400_000)
