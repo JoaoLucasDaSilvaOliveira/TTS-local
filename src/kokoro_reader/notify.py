@@ -1,9 +1,10 @@
-import subprocess
+"""Desktop notifications are disabled: playback/status belong in the dock.
+
+Keep the shared function for existing CLI/service callers, including errors.
+It must never start notify-send or contact a desktop notification service.
+CLI errors still go to stderr and service errors to the journal.
+"""
 
 
 def notify(message, error=False):
-    try:
-        subprocess.Popen(["notify-send", "--app-name=Kokoro Reader", "--urgency=" + ("critical" if error else "normal"),
-                          "Kokoro Reader", str(message)[:500]], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except OSError:
-        pass
+    return None

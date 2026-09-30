@@ -72,7 +72,7 @@ Ao fechar a janela, o painel fica na bandeja do KDE quando ela estiver disponív
 
 O app mostra uma prévia da seleção/clipboard de até 180 caracteres, com indicação da origem. O texto completo fica somente em memória e é enviado pelo botão Ler; truncar a prévia não encurta a leitura. Depois de concluir, você pode ler novamente a mesma prévia. A prévia é atualizada automaticamente; seleções pertencentes a controles do próprio app não substituem um texto externo já capturado. Velocidade usa botões −/+ e um rótulo sem seleção de texto para evitar interferência na seleção primária.
 
-O app também mostra o estado do serviço e uma prévia curta do trecho atual. Se o serviço estiver indisponível, pode iniciá-lo pelo botão **Iniciar serviço**; aguarde a carga do modelo. O progresso é por trechos, não por palavras. Avanço/recuo de 10 s respeita os limites do WAV atual; use Próximo/Anterior para navegar entre trechos. Erros transitórios de conexão são exibidos com mensagem compreensível e reconexão automática; notificações iguais de ações manuais têm intervalo mínimo de 30 segundos. Consultas automáticas não geram notificações de conexão.
+O app também mostra o estado do serviço e uma prévia curta do trecho atual. Se o serviço estiver indisponível, pode iniciá-lo pelo botão **Iniciar serviço**; aguarde a carga do modelo. O progresso é por trechos, não por palavras. Avanço/recuo de 10 s respeita os limites do WAV atual; use Próximo/Anterior para navegar entre trechos. Erros transitórios de conexão são exibidos na doca com mensagem compreensível e reconexão automática. O leitor não envia notificações do desktop, nem para início de leitura, texto vazio ou erros. Erros do cliente de terminal continuam em stderr; erros do serviço ficam no journal.
 
 O botão de leitura consulta a seleção primária Wayland e, quando vazia, o clipboard. Se o aplicativo perder a seleção ao focar o painel, copie com Ctrl+C antes de clicar em Ler. A interface não escreve no clipboard. Os atalhos globais abaixo também continuam funcionando.
 
@@ -165,7 +165,7 @@ ss -ltnp
 
 Verifique no resultado de `ss -ltnp` que o PID do serviço e seu mpv não têm socket TCP em escuta. Outras aplicações podem ter listeners. A unit inicia com `graphical-session.target`; `is-enabled` confirma cadastro, mas confirmar um login real requer sair/entrar na sessão e repetir `is-active`/journal. Não é necessário habilitar linger: o leitor pertence à sessão gráfica. No início, `status` pode informar indisponível durante carga do modelo; consulte o journal.
 
-O cliente precisa rodar na sessão Wayland com `WAYLAND_DISPLAY` e `XDG_RUNTIME_DIR`. Se notificações não aparecerem, confira `DBUS_SESSION_BUS_ADDRESS` no ambiente da sessão. O serviço não lê o clipboard; isso é feito pelo cliente invocado pelo KDE. Para parar/desabilitar: `systemctl --user disable --now kokoro-reader.service`.
+O cliente precisa rodar na sessão Wayland com `WAYLAND_DISPLAY` e `XDG_RUNTIME_DIR`. O serviço não lê o clipboard; isso é feito pelo cliente invocado pelo KDE. Para parar/desabilitar: `systemctl --user disable --now kokoro-reader.service`.
 
 ## Integração futura
 

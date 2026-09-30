@@ -104,12 +104,15 @@ def test_read_uses_preview_text_even_after_completion(panel, monkeypatch):
     assert captured[1]["source"]["selection"] == "primary"
 
 
-def test_repeated_connection_error_notifications_are_limited(panel, monkeypatch):
+def test_connection_and_file_errors_stay_in_dock_without_notifications(panel, monkeypatch):
     notices = []
     monkeypatch.setattr("kokoro_reader.panel.notify", lambda *args, **kw: notices.append(args))
     error = ConnectionResetError(104, "Connection reset by peer")
     panel.receive(None, error, True)
     panel.receive(None, error, True)
     panel.receive(None, error, False)
-    assert len(notices) == 1
+    assert notices == []
     assert "104" not in panel.state.text()
+    panel.file_error("Arquivo inválido")
+    assert panel.state.text() == "Arquivo inválido"
+    assert notices == []
