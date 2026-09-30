@@ -149,7 +149,7 @@ O comando gera a mesma frase nas três vozes, WAV 24 kHz e `metrics.json` com ca
 
 `status` e o journal registram primeira síntese, tempo até o comando de primeira reprodução e duração total da sessão. O tempo até reprodução mede envio aceito pelo mpv, não latência física até o alto-falante. Consulte [docs/VALIDATION.md](docs/VALIDATION.md) para medições feitas e testes pendentes.
 
-O leitor começa pela primeira frase completa, sem esperar artificialmente o segundo WAV. Áudio repetido com a mesma voz é reutilizado em RAM (até 32 MiB/64 entradas); texto novo continua exigindo inferência CPU. O modelo aquece antes de aceitar comandos no início do serviço. Estratégia, benchmark reproduzível e limites de continuidade em [docs/LATENCY.md](docs/LATENCY.md).
+O leitor começa pela primeira frase ou pelo primeiro trecho de até 100 caracteres, priorizando vírgula/ponto e vírgula na metade final desse limite e, na ausência, dividindo entre palavras. Os seguintes mantêm o limite de 220 caracteres. Não espera artificialmente o segundo WAV. Áudio repetido com a mesma voz é reutilizado em RAM (até 32 MiB/64 entradas); texto novo continua exigindo inferência CPU. O modelo aquece antes de aceitar comandos no início do serviço. Estratégia, benchmark reproduzível e limites de continuidade em [docs/LATENCY.md](docs/LATENCY.md).
 
 ## Diagnóstico e inicialização no login
 

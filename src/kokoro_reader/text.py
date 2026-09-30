@@ -45,22 +45,24 @@ def clean_markdown(text):
     return re.sub(r"[ \t]+", " ", text).strip()
 
 
-def _split_long_sentence(sentence, limit):
+def _split_long_sentence(sentence, limit, first_limit=None):
     """Prefer a clause boundary near the limit, then a word boundary."""
     remaining = sentence.strip()
-    while len(remaining) > limit:
-        prefix = remaining[:limit + 1]
+    width = first_limit or limit
+    while len(remaining) > width:
+        prefix = remaining[:width + 1]
         clauses = [m.end() for m in re.finditer(r"[,;](?=\s)", prefix)
-                   if limit // 2 <= m.end() <= limit]
-        spaces = [m.start() for m in re.finditer(r"\s+", prefix) if 0 < m.start() <= limit]
-        cut = clauses[-1] if clauses else spaces[-1] if spaces else limit
+                   if width // 2 <= m.end() <= width]
+        spaces = [m.start() for m in re.finditer(r"\s+", prefix) if 0 < m.start() <= width]
+        cut = clauses[-1] if clauses else spaces[-1] if spaces else width
         yield remaining[:cut].rstrip()
         remaining = remaining[cut:].lstrip()
+        width = limit
     if remaining:
         yield remaining
 
 
-def segment(text, limit=220, min_chars=0, first_min_chars=None):
+def segment(text, limit=220, min_chars=0, first_min_chars=None, first_limit=None):
     """Trechos curtos com IDs estáveis; não divide decimais nem siglas comuns."""
     if limit < 16:
         raise ValueError("Limite muito pequeno")
@@ -68,6 +70,8 @@ def segment(text, limit=220, min_chars=0, first_min_chars=None):
         raise ValueError("Tamanho mínimo inválido")
     if first_min_chars is not None and not 0 <= first_min_chars <= limit:
         raise ValueError("Tamanho mínimo inicial inválido")
+    if first_limit is not None and not 16 <= first_limit <= limit:
+        raise ValueError("Limite inicial inválido")
     result = []
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     # Soft line wrapping is formatting, not a speech boundary. Only blank
@@ -80,17 +84,20 @@ def segment(text, limit=220, min_chars=0, first_min_chars=None):
         protected = re.sub(r"\b(?:[A-Z]\.){2,}", lambda m: m[0].replace(".", "\ue000"), protected)
         for sentence in re.split(r"(?<=[.!?…])\s+", protected):
             sentence = sentence.replace("\ue000", ".")
-            for chunk in _split_long_sentence(sentence, limit):
+            initial_limit = first_limit if not result and not paragraph_chunks else None
+            for chunk in _split_long_sentence(sentence, limit, initial_limit):
                 minimum = first_min_chars if first_min_chars is not None and not result and len(paragraph_chunks) == 1 else min_chars
+                merge_limit = first_limit if first_limit is not None and not result and len(paragraph_chunks) == 1 else limit
                 if (paragraph_chunks and len(paragraph_chunks[-1]) < minimum
-                        and len(paragraph_chunks[-1]) + 1 + len(chunk) <= limit):
+                        and len(paragraph_chunks[-1]) + 1 + len(chunk) <= merge_limit):
                     paragraph_chunks[-1] += " " + chunk
                 else:
                     paragraph_chunks.append(chunk)
         # Evita uma última frase muito curta isolada quando cabe no trecho anterior.
         minimum = first_min_chars if first_min_chars is not None and not result and len(paragraph_chunks) == 2 else min_chars
+        merge_limit = first_limit if first_limit is not None and not result and len(paragraph_chunks) == 2 else limit
         if (len(paragraph_chunks) > 1 and len(paragraph_chunks[-1]) < minimum
-                and len(paragraph_chunks[-2]) + 1 + len(paragraph_chunks[-1]) <= limit):
+                and len(paragraph_chunks[-2]) + 1 + len(paragraph_chunks[-1]) <= merge_limit):
             paragraph_chunks[-2] += " " + paragraph_chunks[-1]
             paragraph_chunks.pop()
         result.extend(paragraph_chunks)
